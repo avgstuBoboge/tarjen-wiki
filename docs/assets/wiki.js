@@ -1,5 +1,5 @@
 // docs/assets/wiki.js
-// 共享前端模块：被 /editor/ 和 /edit-md/ 两个页面 <script src="../assets/wiki.js"> 加载。
+// 共享前端模块：被 /editor/?view=table 和 /editor/?view=md 同一页面 <script src="../assets/wiki.js"> 加载。
 // 没有构建步骤、没有模块系统——直接挂到 window.Wiki。
 // 要加第三个编辑器：引入这个文件 + 准备好约定的 DOM 元素 ID（见 wireTokenUI / wireBeforeUnload 注释）。
 (function () {
