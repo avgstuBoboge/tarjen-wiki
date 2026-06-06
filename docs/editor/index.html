@@ -796,10 +796,9 @@
           btn.textContent = orig;
           btn.disabled = false;
         }, 2500);
-        // 提示一下 CI 部署
-        if (confirm('已保存。要去 commit 页面看看吗？\n（如果配了 GitHub Actions 部署，等几秒刷新就能看到新表）')) {
-          window.open(result.commit?.html_url || `https://github.com/${GH_OWNER}/${GH_REPO}/commits/${GH_BRANCH}`, '_blank');
-        }
+        // 保存成功 → 直接跳回主页，配了 Actions 的话几秒后刷新就有新表
+        showToast('✅ 已保存，跳回主页…');
+        setTimeout(() => { window.location.href = '../'; }, 600);
       } catch (e) {
         showToast('保存失败：' + e.message, true);
         btn.textContent = orig;
