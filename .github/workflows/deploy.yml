@@ -5,12 +5,20 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# 同一时间只跑一个 deploy：连按 3 次 main push 不会 3 个 workflow 抢 gh-pages 分支
+# 旧的 cancel，新 push 跑完整流程
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # mkdocs gh-deploy 网络抽风最多挂几小时；超时 10 分钟让 CI 报警
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
