@@ -13,6 +13,8 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # mkdocs gh-deploy 网络抽风最多挂几小时；超时 10 分钟让 CI 报警
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
