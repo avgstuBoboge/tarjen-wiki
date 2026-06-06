@@ -500,6 +500,7 @@
       $('editing-name').textContent = row.name + ' (' + row.slug + ')';
       renderCells();
       updateAll();
+      snapshot();  // 拍初始快照，之后 isDirty() 跟这份对比
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     function exitEditMode() {
@@ -515,14 +516,32 @@
       cells = [];
       renderCells();
       updateAll();
+      snapshot();  // 重置 dirty 基准
     }
 
     // ---------- save ----------
+    // 初始快照：form 加载完 / 切换到新增模式时拍一份；isDirty() 跟当前对比
+    var initialSnapshot = null;
+    function snapshot() {
+      initialSnapshot = {
+        name: $('name').value,
+        slug: $('slug').value,
+        date: $('date').value,
+        total: $('total').value,
+        link: $('link').value,
+        tags: $('tags').value,
+        cells: cells.join(''),
+      };
+    }
     function isDirty() {
-      // 简单判断：name/slug/date/total/link/tags 任一非空就算 dirty
-      if (saving) return false;
-      return $('name').value.trim() || $('slug').value.trim() || $('link').value.trim() || $('tags').value.trim()
-        || cells.some(function (c) { return c !== '.'; });
+      if (saving || !initialSnapshot) return false;
+      var cur = {
+        name: $('name').value, slug: $('slug').value, date: $('date').value,
+        total: $('total').value, link: $('link').value, tags: $('tags').value,
+        cells: cells.join(''),
+      };
+      for (var k in cur) if (cur[k] !== initialSnapshot[k]) return true;
+      return false;
     }
 
     async function saveToGithub() {
@@ -606,6 +625,7 @@
 
     renderCells();
     updateAll();
+    snapshot();  // 初始 dirty 基准（默认日期已填完，名字没填 → 修改 name 后变 dirty）
   });
   </script>
 </body>
