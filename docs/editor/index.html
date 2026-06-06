@@ -771,9 +771,9 @@
       $('btn-goto').href = '../contests/' + encodeURIComponent(slug) + '/?_t=' + Date.now();
       $('btn-goto').style.display = '';
 
-      // 多个源：dev server 直链 → raw.githubusercontent 兜底
+      // 源：raw.githubusercontent（主源，本地 mkdocs serve / 部署后都能用，
+      // 因为 mkdocs 编译后 .md 文件不保留；只有 raw 仓库 URL 能拿到原文）
       var sources = [
-        '../docs/contests/' + encodeURIComponent(slug) + '.md',
         W.rawUrl('docs/contests/' + encodeURIComponent(slug) + '.md'),
       ];
       for (var i = 0; i < sources.length; i++) {
