@@ -19,6 +19,8 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
+      - name: Sync CSV → docs/index.md
+        run: python3 tools/sync.py
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Build & deploy to gh-pages
