@@ -53,7 +53,7 @@ DATA_JSON = DATA_DIR / "contests.json"
 # 加新比赛时 total 变大，列数自动扩展；删干净以后回到 0 列。
 
 DATE_RE = re.compile(r"^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})$")
-ALLOWED_PROBLEM_CHARS = set("OØ.!?*xX")
+ALLOWED_PROBLEM_CHARS = set("OØ.!")
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9\-_.]*$")
 
 
