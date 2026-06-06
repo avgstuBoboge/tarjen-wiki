@@ -9,7 +9,7 @@ test-py:
 
 # JS 单元测试（用 node 自带 test runner，无需 npm install）
 test-js:
-	node --test tests/js/
+	node --test tests/js/*.test.js
 
 # 验证 mkdocs 能成功构建（注意：要先有 .venv 装过 mkdocs-material）
 build:
