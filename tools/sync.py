@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import re
 import sys
@@ -174,6 +175,12 @@ def render_table(contests: list[Contest]) -> str:
     header = "| 比赛 | 日期 | 题数 |  | " + " | ".join(letters) + " |"
     align = "|:-----|:----:|:----:|:---:|" + "|".join([":-:"] * cols) + "|"
 
+    # 编辑器 cache-bust：用 editor/index.html 的内容短哈希当 ?_t= 参数
+    # 这样编辑器改了就自动失效浏览器缓存；编辑器没改就 hash 不变，index.md 不会 churn
+    _editor_path = REPO_ROOT / "docs" / "editor" / "index.html"
+    _editor_hash = hashlib.sha1(_editor_path.read_bytes() if _editor_path.exists() else b"").hexdigest()[:6]
+    _editor_cache_bust = f"&_t={_editor_hash}"
+
     # 数据行
     lines = [header, align]
     for c in contests:
@@ -181,7 +188,7 @@ def render_table(contests: list[Contest]) -> str:
         rendered = list(c.problems) + [""] * (cols - len(c.problems))
         link_target = f"contests/{c.slug}.md"
         # index.md 在站点根，editor/ 是它的子目录，链接不加 ..
-        edit_link = f"[✎](editor/?slug={c.slug})"
+        edit_link = f"[✎](editor/?slug={c.slug}{_editor_cache_bust})"
         # 三段式统计：赛时+补题 / 赛时过题 / 总题数
         # 单一数据源：从 problems 字段算，不信任 CSV 的 solved 字段
         in_contest = sum(1 for p in c.problems if p == "O")
