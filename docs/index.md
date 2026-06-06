@@ -14,7 +14,7 @@
 <!-- SYNC:CONTESTS-START -->
 | 比赛 | 日期 | 题数 |  | A | B | C | D | E | F | G | H | I | J | K | L | M | N |
 |:-----|:----:|:----:|:---:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| [ACM-ICPC World Finals 2015 – Marrakesh](contests/2015-icpc-wf-marrakesh.md) | 2025.8.22 | 9/9/13 | [✎](editor/?slug=2015-icpc-wf-marrakesh) | O | O | O | . | O | O | O | O | O | O | . | . | . |  |
+| [ACM-ICPC World Finals 2015 – Marrakesh](contests/2015-icpc-wf-marrakesh.md) | 2025.8.22 | 10/9/13 | [✎](editor/?slug=2015-icpc-wf-marrakesh) | O | O | O | Ø | O | O | O | O | O | O | . | . | . |  |
 | [ACM-ICPC World Finals 2016 – Phuket](contests/2016-icpc-wf-phuket.md) | 2025.8.03 | 6/6/13 | [✎](editor/?slug=2016-icpc-wf-phuket) | O | O | . | O | O | . | O | . | O | . | . | . | . |  |
 | [ACM-ICPC World Finals 2017 – Rapid City](contests/2017-icpc-wf-rapid-city.md) | 2025.8.01 | 6/6/12 | [✎](editor/?slug=2017-icpc-wf-rapid-city) | O | . | O | O | . | O | O | . | O | . | . | . |  |  |
 | [ACM-ICPC World Finals 2018 – Beijing](contests/2018-icpc-wf-beijing.md) | 2025.7.26 | 6/6/11 | [✎](editor/?slug=2018-icpc-wf-beijing) | O | O | O | . | O | O | . | O | . | . | . |  |  |  |
@@ -42,7 +42,7 @@
 ## 统计
 
 - 累计场次：<!-- SYNC:COUNT -->23<!-- /SYNC:COUNT -->
-- 累计通过：约 <!-- SYNC:SOLVED -->162<!-- /SYNC:SOLVED --> 题
+- 累计通过：约 <!-- SYNC:SOLVED -->163<!-- /SYNC:SOLVED --> 题
 
 ## 维护说明
 
