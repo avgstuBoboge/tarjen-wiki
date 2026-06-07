@@ -335,5 +335,46 @@ class TestMainArgv(unittest.TestCase):
                 if v is not None: os.environ[k] = v
 
 
+# ---------------- _parse_cookie_kv ----------------
+
+class TestParseCookieKv(unittest.TestCase):
+    def test_value_only_uses_default_name(self):
+        # 用户从 DevTools 只复制了 Value 列
+        self.assertEqual(
+            qoj_sync._parse_cookie_kv("abc123def456"),
+            ("uojauth", "abc123def456"),
+        )
+
+    def test_name_equals_value_split(self):
+        # DevTools "Copy" 整个 cookie 行偶尔会带 "uojauth=..."
+        self.assertEqual(
+            qoj_sync._parse_cookie_kv("uojauth=abc123def456"),
+            ("uojauth", "abc123def456"),
+        )
+
+    def test_strips_whitespace(self):
+        self.assertEqual(
+            qoj_sync._parse_cookie_kv("  uojauth=abc  "),
+            ("uojauth", "abc"),
+        )
+
+    def test_strips_cookie_prefix(self):
+        # Set-Cookie 风格的整行
+        self.assertEqual(
+            qoj_sync._parse_cookie_kv("Cookie: uojauth=abc"),
+            ("uojauth", "abc"),
+        )
+
+    def test_empty_returns_empty_value(self):
+        self.assertEqual(qoj_sync._parse_cookie_kv(""), ("uojauth", ""))
+
+    def test_custom_default_name(self):
+        # 万一 QOJ 改名
+        self.assertEqual(
+            qoj_sync._parse_cookie_kv("xyz", default_name="UOJ_Auth"),
+            ("UOJ_Auth", "xyz"),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

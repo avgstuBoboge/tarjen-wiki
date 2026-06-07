@@ -11,6 +11,10 @@ on:
       username:
         description: 'QOJ username (e.g. tarjen)'
         required: true
+      qoj_cookie:
+        description: 'QOJ uojauth cookie value (从浏览器 F12 → Application → Cookies 复制). 只用于本次 run，actions 日志里会 mask.'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -45,7 +49,12 @@ jobs:
         env:
           CONTEST_ID: ${{ inputs.contest_id }}
           USERNAME: ${{ inputs.username }}
-        run: python3 tools/qoj_sync.py "$CONTEST_ID" "$USERNAME"
+          QOJ_AUTH_COOKIE: ${{ inputs.qoj_cookie }}
+        # ::add-mask:: 让 qoj_cookie 的值在 logs 里显示为 ***，避免误打印泄露
+        # 放在第一个 echo 之前：mask 只对后续行生效
+        run: |
+          echo "::add-mask::$QOJ_AUTH_COOKIE"
+          python3 tools/qoj_sync.py "$CONTEST_ID" "$USERNAME"
         # 不加 continue-on-error：失败要让下一部的 artifact 上传跑起来
 
       - name: Upload debug HTML on failure

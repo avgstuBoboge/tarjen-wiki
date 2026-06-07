@@ -47,7 +47,7 @@ class _Response:
 class _PlaywrightSession:
     """headless Chromium 一次启动，跨多次 get 复用。闭包管理生命周期。"""
 
-    def __init__(self):
+    def __init__(self, auth_cookie=None):
         from playwright.sync_api import sync_playwright
         self._p = sync_playwright().start()
         # 隐身 flags：让 CF 不把它当 headless bot
@@ -76,6 +76,24 @@ class _PlaywrightSession:
             Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
             Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
         """)
+        # QOJ 要登录才能看比赛页和提交页；从 QOJ_AUTH_COOKIE env 读 uojauth（name=value 或 单 value）
+        # 必须在 new_page() 之前 add_cookies，否则第一次请求不带 cookie，触发 login 重定向
+        if auth_cookie:
+            name, value = _parse_cookie_kv(auth_cookie, default_name="uojauth")
+            if value:
+                self._context.add_cookies([{
+                    "name": name,
+                    "value": value,
+                    "domain": "qoj.ac",
+                    "path": "/",
+                    "secure": True,
+                    "sameSite": "Lax",
+                }])
+                print(f"[*] 已注入 QOJ cookie：{name}=<{len(value)} chars>", file=sys.stderr)
+            else:
+                print("[!] QOJ_AUTH_COOKIE 为空，按匿名访问（比赛页可能 302 → /login）", file=sys.stderr)
+        else:
+            print("[!] 未提供 QOJ_AUTH_COOKIE，按匿名访问（比赛页可能 302 → /login）", file=sys.stderr)
         self._page = self._context.new_page()
 
     def get(self, url, params=None):
@@ -134,12 +152,28 @@ class _PlaywrightSession:
 
 def _open_session():
     """打开一个 fetcher session。失败抛 RuntimeError 让 CI 重试更明显。"""
+    cookie = os.environ.get("QOJ_AUTH_COOKIE", "").strip()
     try:
-        return _PlaywrightSession()
+        return _PlaywrightSession(auth_cookie=cookie or None)
     except ImportError as e:
         raise RuntimeError(
             "缺少 playwright 依赖。CI workflow 应该 pip install playwright + playwright install chromium。"
         ) from e
+
+
+def _parse_cookie_kv(raw, default_name="uojauth"):
+    """解析用户粘的 cookie 字符串：'uojauth=abc123' → ('uojauth', 'abc123')；只粘 'abc123' → (default_name, 'abc123')。
+    剥首尾空白；剥可能的 'Cookie:' 前缀（DevTools 复制时偶尔带）。
+    """
+    s = (raw or "").strip()
+    if not s:
+        return default_name, ""
+    if s.lower().startswith("cookie:"):
+        s = s.split(":", 1)[1].strip()
+    if "=" in s:
+        name, _, value = s.partition("=")
+        return name.strip(), value.strip()
+    return default_name, s
 
 
 # UOJ 在 <a class="small">RESULT_ERROR</a> 里写的原文

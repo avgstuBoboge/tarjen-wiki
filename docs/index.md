@@ -67,14 +67,28 @@
 
 1. 粘 QOJ 比赛链接（如 `https://qoj.ac/contest/2564` 或只填 `2564`）
 2. 填 QOJ 用户名（如 `tarjen`）
-3. 点「📥 导入」—— 浏览器**一按就走 GitHub Actions** 在服务端跑 `tools/qoj_sync.py`，绕 Cloudflare
-4. 等几秒到 2 分钟（取决于 QOJ 题目数和提交数），出现「✅ 抓到了，13 题」预览
-5. 看一眼映射：AC + 赛中 → `O`，AC + 赛后 → `Ø`，WA/TLE/RE → `!`，没提交 → `.`
-6. 点「✅ 填入表单」→ 编辑器填好 → 自己再点格子微调 → 「💾 保存到 GitHub」
+3. 填 **QOJ 登录 cookie（uojauth）**——见下面「怎么拿 uojauth」
+4. 点「📥 导入」—— 浏览器**一按就走 GitHub Actions** 在服务端跑 `tools/qoj_sync.py`，绕 Cloudflare
+5. 等几秒到 2 分钟（取决于 QOJ 题目数和提交数），出现「✅ 抓到了，13 题」预览
+6. 看一眼映射：AC + 赛中 → `O`，AC + 赛后 → `Ø`，WA/TLE/RE → `!`，没提交 → `.`
+7. 点「✅ 填入表单」→ 编辑器填好 → 自己再点格子微调 → 「💾 保存到 GitHub」
+
+> 提交后输入框里的 cookie **立刻被清空**，也不会被记到 git 历史；只有这次 Actions run 期间会进 env var（日志里 `::add-mask::` 改成 `***`）。
+
+**怎么拿 uojauth**：
+
+1. 浏览器打开 [qoj.ac/login](https://qoj.ac/login) 登录（确保「保持登录」勾上）
+2. F12 → **Application** 标签 → 左栏 **Cookies** → 选 `https://qoj.ac` → 找 `uojauth` 一行
+3. 双击 **Value** 列全选 → Ctrl/⌘+C 复制
+4. 粘到 editor 的「QOJ 登录 cookie」框
+
+只粘 Value 一长串就行；如果不小心连 `uojauth=...` 一起复制了，脚本也能识别。
 
 **前置条件**：GitHub PAT 多勾一个 **Workflows: Read and write** 权限（生成页面在 `Workflows` 那一栏）。只有触发的权限要这个，「保存到 GitHub」用的是 Contents:write。
 
 **怎么知道 import 跑成功没**：点完「📥 导入」可以关页面；下次打开编辑器时数据已经在 cache 里了。
+
+**cookie 失效了怎么办**：QOJ 登录态默认 7–30 天。报错信息如果带 `302 → /login`，就是 cookie 过期了，再去 F12 复制一次新的粘进来。
 
 ### 直接改仓库
 
