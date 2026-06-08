@@ -67,32 +67,23 @@
 
 1. 粘 QOJ 比赛链接（如 `https://qoj.ac/contest/2564` 或只填 `2564`）
 2. 填 QOJ 用户名（如 `tarjen`）
-3. 点「📥 导入」—— 浏览器**一按就走 GitHub Actions** 在服务端跑 `tools/qoj_sync.py`，绕 Cloudflare
-4. 等几秒到几分钟（取决于 QOJ 题目数和提交数），出现「✅ 抓到了，12 题」预览
-5. 看一眼映射：AC + 赛中 → `O`，AC + 赛后 → `Ø`，WA/TLE/RE → `!`，没提交 → `.`
-6. 点「✅ 填入表单」→ 编辑器填好 → 自己再点格子微调 → 「💾 保存到 GitHub」
+3. 点「📥 导入」—— 浏览器**一按就自己 fetch qoj.ac**，几秒出预览
+4. 看一眼映射：AC + 赛中 → `O`，AC + 赛后 → `Ø`，WA/TLE/RE → `!`，没提交 → `.`
+5. 点「✅ 填入表单」→ 编辑器填好 → 自己再点格子微调 → 「💾 保存到 GitHub」
 
-**前置条件 1：设 QOJ cookie**（只一次）：
+整个过程在**你家浏览器**里跑，Cloudflare 信任家用 IP，不被卡。**不依赖 GitHub Actions**。
 
-QOJ 比赛页和提交页要登录（用 UOJ 的 `uoj_remember_token` + `uoj_remember_token_checksum` + `UOJSESSID` 三件套）。维护者把 cookie 存到 Repo Secret 一次，之后所有 import 共享。
+**前置条件 1：QOJ cookie**（只一次）：
 
-去 https://github.com/tarjen/tarjen-wiki/settings/secrets/actions → **New repository secret**：
+打开 [qoj.ac](https://qoj.ac) 登录 → F12 → Application → Cookies → `qoj.ac` → 选中那 3 行（`uoj_remember_token` / `uoj_remember_token_checksum` / `UOJSESSID`）→ Value 列复制拼成 `uoj_remember_token=VAL1;uoj_remember_token_checksum=VAL2;UOJSESSID=VAL3` → 粘到编辑器「🍪 QOJ Cookie」输入框 → 保存（存浏览器 localStorage）。
 
-- **Name**: `QOJ_AUTH_COOKIE`
-- **Value**: 浏览器登录 [qoj.ac](https://qoj.ac) → F12 → Application → Cookies → `qoj.ac` → 选中那 3 行（`uoj_remember_token`、`uoj_remember_token_checksum`、`UOJSESSID`）的 Value 单元格双击复制，拼成 `uoj_remember_token=VAL1;uoj_remember_token_checksum=VAL2;UOJSESSID=VAL3` 粘进去
-- 点 **Add secret**
+> cookie 过期了（一般 7–30 天）再来更新一次。
 
-> Secret 在 GH 后端加密 at rest，Actions run 时只通过 env 注入，**log 完全看不到**（连 env 列表都显示 `***`）。cookie 过期了（一般 7–30 天）来这里改一次值就行。
+**前置条件 2：CORS 扩展**（只一次）：
 
-**前置条件 2**：GitHub PAT 多勾一个 **Workflows: Read and write** 权限（生成页面在 `Workflows` 那一栏）。只有触发的权限要这个，「保存到 GitHub」用的是 Contents:write。
+qoj.ac 没设 CORS 头，浏览器默认拒掉跨域 response。装个 [Allow CORS](https://chromewebstore.google.com/search/CORS) 类扩展，对 `qoj.ac` enable，刷新本页面。
 
-**怎么知道 import 跑成功没**：点完「📥 导入」可以关页面；下次打开编辑器时数据已经在 cache 里了。报错如果带 `重定向到登录页` → cookie 过期，去上面那个 secret 改一次新值。
-
-**⚠️ 关于 Cloudflare 拦截**（GitHub Actions 已知问题）：
-
-CF 对 GH Actions 这个 IP 段查得严，**/contests 经常触发 Cloudflare Turnstile 验证**。Playwright headless Chromium 偶尔也解不开，**导致拿不到 start_time/duration**——这时所有 AC 全部标 `Ø`（赛后），因为脚本没法判定"赛中"。
-
-> 影响小：12 题的 O/Ø/!/. 仍然全准（从 `/results/QOJ{cid}` 一次性拿），只损失"赛中"判定。可以从比赛页手填比赛日期做"赛中"参考。
+**没反应 / 报 CORS 错**：去「🍪 QOJ Cookie」检查 cookie 是不是过期了；CORS 扩展是否对 qoj.ac enable。
 
 如果哪天 CF 升级把 `/results/QOJ{cid}` 也卡了，**cache entry 会加 `cf_blocked: true` 标记**——编辑器看到后告诉你要手动点格子。
 

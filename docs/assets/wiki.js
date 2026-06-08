@@ -10,6 +10,9 @@
   // v1 = 明文 PAT（遗留，向后兼容）；v2_enc = AES-GCM 加密后的 blob（base64 字符串）
   var TOKEN_KEY = 'gh_token_v1';
   var TOKEN_KEY_ENC = 'gh_token_v2_enc';
+  // QOJ 登录 cookie：明文存 localStorage。qoj.ac cookie 7-30 天过期，过期去页面改一次。
+  // 不加密——比 GH PAT 威力小（只能在 qoj.ac 当你发题），且只是 session 级权限。
+  var QOJ_COOKIE_KEY = 'qoj_cookie_v1';
   var API_BASE = 'https://api.github.com';
   var RAW_BASE = 'https://raw.githubusercontent.com';
 
@@ -20,6 +23,17 @@
   function setToken(t) { _plain = t || ''; }
   // 兼容旧用法：编辑器的「保存 Token」按钮会调 setToken；新流程下 setToken 只放内存
   function clearToken() { _plain = ''; localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(TOKEN_KEY_ENC); }
+
+  // ---- QOJ cookie（明文 localStorage） ----
+  function getQojCookie() {
+    try { return localStorage.getItem(QOJ_COOKIE_KEY) || ''; } catch (e) { return ''; }
+  }
+  function setQojCookie(v) {
+    try {
+      if (v) localStorage.setItem(QOJ_COOKIE_KEY, v);
+      else localStorage.removeItem(QOJ_COOKIE_KEY);
+    } catch (e) {}
+  }
 
   // ---- Web Crypto：密码派生 + AES-GCM 加密 ----
   // 失败抛 Error('crypto-unavailable') 或 Error('crypto-failed: ...')。
@@ -310,6 +324,45 @@
     refresh();
   }
 
+  // ---- QOJ cookie UI（独立 details 块，明文存 localStorage） ----
+  // 块内 ID：qoj-cookie (input)、btn-save-qoj-cookie、btn-clear-qoj-cookie、qoj-cookie-status (span)。
+  // 任一缺失静默跳过。
+  function wireQojCookieUI() {
+    var inp = document.getElementById('qoj-cookie');
+    var btnSv = document.getElementById('btn-save-qoj-cookie');
+    var btnCl = document.getElementById('btn-clear-qoj-cookie');
+    var st = document.getElementById('qoj-cookie-status');
+    if (!inp || !btnSv) return;
+
+    function refresh() {
+      var v = getQojCookie();
+      if (v) {
+        if (st) st.textContent = '✓ 已配置（' + v.length + ' 字符）';
+        if (btnCl) btnCl.style.display = '';
+        if (inp) inp.placeholder = '已存（重新粘可覆盖）';
+      } else {
+        if (st) st.textContent = '未配置';
+        if (btnCl) btnCl.style.display = 'none';
+        if (inp) inp.placeholder = 'uoj_remember_token=...;uoj_remember_token_checksum=...;UOJSESSID=...';
+      }
+    }
+    btnSv.addEventListener('click', function () {
+      var v = (inp.value || '').trim();
+      if (!v) { toast('先粘 cookie', true); return; }
+      setQojCookie(v);
+      inp.value = '';
+      refresh();
+      toast('✓ QOJ cookie 已保存到 localStorage');
+    });
+    if (btnCl) btnCl.addEventListener('click', function () {
+      if (!confirm('清除 QOJ cookie？')) return;
+      setQojCookie('');
+      refresh();
+      toast('已清除');
+    });
+    refresh();
+  }
+
   // 离开确认 + Cmd/Ctrl+S 快捷键。
   // 用法：Wiki.wireBeforeUnload(() => isDirty, () => saveFn());
   // 当 isDirty() 返回 true 时刷新/关 tab 会弹系统确认。
@@ -326,44 +379,18 @@
     });
   }
 
-  // ---- 触发 GitHub Actions workflow（用于「📥 从 QOJ 导入」等场景）----
-  // 调 POST /repos/{owner}/{repo}/actions/workflows/{file}/dispatches
-  // 需要 token 有 Workflows: write 权限；fine-grained PAT 需明确勾上
-  // 返回 204 即视为成功；workflow 异步跑，本函数不等待结果
-  async function triggerWorkflow(workflowFile, inputs, ref) {
-    if (!getToken()) throw new Error('No PAT configured');
-    var h = apiHeaders();
-    h['Content-Type'] = 'application/json';
-    var res = await fetch(
-      API_BASE + '/repos/' + REPO.owner + '/' + REPO.repo +
-      '/actions/workflows/' + encodeURIComponent(workflowFile) + '/dispatches',
-      {
-        method: 'POST',
-        headers: h,
-        body: JSON.stringify({
-          ref: ref || REPO.branch,
-          inputs: inputs || {},
-        }),
-      }
-    );
-    if (res.status === 204) return true;
-    var err = {};
-    try { err = await res.json(); } catch (e) {}
-    if (res.status === 401) throw new Error('Token 无权触发 workflow（需要 Workflows: write 权限）');
-    if (res.status === 404) throw new Error('找不到 workflow 文件：' + workflowFile);
-    throw new Error(err.message || ('HTTP ' + res.status));
-  }
-
   // ---- 暴露 ----
   window.Wiki = {
-    REPO: REPO, TOKEN_KEY: TOKEN_KEY, TOKEN_KEY_ENC: TOKEN_KEY_ENC,
+    REPO: REPO, TOKEN_KEY: TOKEN_KEY, TOKEN_KEY_ENC: TOKEN_KEY_ENC, QOJ_COOKIE_KEY: QOJ_COOKIE_KEY,
     getToken: getToken, setToken: setToken, clearToken: clearToken,
     hasEncryptedToken: hasEncryptedToken,
     encryptToken: encryptToken, decryptToken: decryptToken,
     unlockToken: unlockToken, encryptCurrentToken: encryptCurrentToken,
+    getQojCookie: getQojCookie, setQojCookie: setQojCookie,
     apiUrl: apiUrl, rawUrl: rawUrl, apiHeaders: apiHeaders,
-    commitFile: commitFile, triggerWorkflow: triggerWorkflow,
+    commitFile: commitFile,
     esc: esc, toast: toast, setStatus: setStatus,
-    wireTokenUI: wireTokenUI, wireBeforeUnload: wireBeforeUnload,
+    wireTokenUI: wireTokenUI, wireQojCookieUI: wireQojCookieUI,
+    wireBeforeUnload: wireBeforeUnload,
   };
 })();
