@@ -219,6 +219,103 @@ test('wireQojCookieUI: save button disabled until all 3 inputs filled', () => {
     'save should refuse when only 2/3 are filled');
 });
 
+// ---- QOJ fetch helpers (cookie expiry detection) ----
+
+test('isQojLoginSignal: 401 → true', () => {
+  const { Wiki } = loadWiki();
+  assert.equal(Wiki.isQojLoginSignal(401, ''), true);
+});
+
+test('isQojLoginSignal: 403 → true', () => {
+  const { Wiki } = loadWiki();
+  assert.equal(Wiki.isQojLoginSignal(403, ''), true);
+});
+
+test('isQojLoginSignal: 200 + login form action → true', () => {
+  const { Wiki } = loadWiki();
+  const html = '<html><body><form action="/login" method="post"><input name="login"></form></body></html>';
+  assert.equal(Wiki.isQojLoginSignal(200, html), true);
+});
+
+test('isQojLoginSignal: 200 + "请先登录" text → true', () => {
+  const { Wiki } = loadWiki();
+  assert.equal(Wiki.isQojLoginSignal(200, '<div>请先登录后再访问</div>'), true);
+});
+
+test('isQojLoginSignal: 200 + "Please Login" text → true', () => {
+  const { Wiki } = loadWiki();
+  assert.equal(Wiki.isQojLoginSignal(200, '<h1>Please Login First</h1>'), true);
+});
+
+test('isQojLoginSignal: 200 + normal contest HTML → false', () => {
+  const { Wiki } = loadWiki();
+  const html = '<h1>Contest 2564</h1><a href="/contest/2564/problem/1">A</a>';
+  assert.equal(Wiki.isQojLoginSignal(200, html), false);
+});
+
+test('isQojLoginSignal: 200 + empty body → false', () => {
+  const { Wiki } = loadWiki();
+  assert.equal(Wiki.isQojLoginSignal(200, ''), false);
+});
+
+test('qojFetchHtml: 403 response → throws cookie_expired', async () => {
+  const fakeFetch = async () => ({ ok: false, status: 403, text: async () => '' });
+  const { Wiki } = loadWiki({ fetchImpl: fakeFetch });
+  await assert.rejects(
+    Wiki.qojFetchHtml('https://qoj.ac/contest/1', 'cookie'),
+    function (e) {
+      return e.code === 'cookie_expired' && /HTTP 403/.test(e.message);
+    }
+  );
+});
+
+test('qojFetchHtml: 200 with login HTML → throws cookie_expired', async () => {
+  const fakeFetch = async () => ({
+    ok: true, status: 200,
+    text: async () => '<html><body><form action="/login"></form></body></html>',
+  });
+  const { Wiki } = loadWiki({ fetchImpl: fakeFetch });
+  await assert.rejects(
+    Wiki.qojFetchHtml('https://qoj.ac/contest/1', 'cookie'),
+    function (e) { return e.code === 'cookie_expired'; }
+  );
+});
+
+test('qojFetchHtml: 200 with real HTML → resolves body', async () => {
+  const fakeFetch = async () => ({
+    ok: true, status: 200,
+    text: async () => '<h1>Contest 2564</h1>',
+  });
+  const { Wiki } = loadWiki({ fetchImpl: fakeFetch });
+  const body = await Wiki.qojFetchHtml('https://qoj.ac/contest/1', 'cookie');
+  assert.equal(body, '<h1>Contest 2564</h1>');
+});
+
+test('qojFetchHtml: 500 with non-login body → throws plain HTTP error', async () => {
+  const fakeFetch = async () => ({
+    ok: false, status: 500,
+    text: async () => '<html>internal error</html>',
+  });
+  const { Wiki } = loadWiki({ fetchImpl: fakeFetch });
+  await assert.rejects(
+    Wiki.qojFetchHtml('https://qoj.ac/contest/1', 'cookie'),
+    /HTTP 500/
+  );
+});
+
+test('qojFetchHtml: sends Cookie header + credentials:omit', async () => {
+  let captured;
+  const fakeFetch = async (url, opts) => {
+    captured = { url: url, opts: opts };
+    return { ok: true, status: 200, text: async () => '<h1>x</h1>' };
+  };
+  const { Wiki } = loadWiki({ fetchImpl: fakeFetch });
+  await Wiki.qojFetchHtml('https://qoj.ac/contest/2564', 'uoj_remember_token=t;UOJSESSID=s');
+  assert.equal(captured.url, 'https://qoj.ac/contest/2564');
+  assert.equal(captured.opts.credentials, 'omit');
+  assert.equal(captured.opts.headers.Cookie, 'uoj_remember_token=t;UOJSESSID=s');
+});
+
 // ---- URLs ----
 
 test('apiUrl constructs correct Contents API URL', () => {
