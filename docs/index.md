@@ -53,7 +53,7 @@
 1. 填比赛名、日期、题目总数
 2. 点格子循环切状态：**未做 → O（赛中过题）→ Ø（赛后补过）→ !（尝试没过）→ 未做**
 3. 滚到底部「💾 保存修改」面板
-4. **首次用**：点「⚙ GitHub Token 配置」按步骤生成 fine-grained PAT（仓库选 `tarjen/tarjen-wiki`，权限选 Contents: Read and write），粘进去保存（只存 localStorage，不上传服务器）
+4. **首次用**：点「⚙ GitHub Token 配置」生成 fine-grained PAT（仓库选 `tarjen/tarjen-wiki`，权限只勾 Contents: Read and write），粘进去点保存（明文存 localStorage，不上传服务器）
 5. 之后每次：点 **💾 保存到 GitHub** 就直接 PUT 到 `contests.csv`，完事
 
 配了 GitHub Actions 自动跑 `mkdocs build + gh-deploy` 的话，commit 完几秒后刷新页面就能看到新表。

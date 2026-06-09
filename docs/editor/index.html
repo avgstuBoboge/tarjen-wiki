@@ -369,14 +369,11 @@
     <p class="hint" style="margin-top: 0.5em;">
       ① 打开 <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">GitHub PAT 设置</a>
       ② New fine-grained token，仓库只勾 <code>tarjen/tarjen-wiki</code>，权限只勾 <strong>Contents: Read and write</strong>
-      ③ 复制 token 粘到下面；可选：用密码加密后存到 localStorage（关闭浏览器需重新输入密码解锁）
+      ③ 复制 token 粘到下面，点保存（只存浏览器 localStorage，不上传服务器）
     </p>
     <input type="password" id="gh-token" placeholder="github_pat_xxx..." autocomplete="off">
-    <input type="password" id="gh-pwd" placeholder="加密密码（可选；至少 6 位）" autocomplete="off">
     <div class="row">
-      <button class="btn sec tiny" id="btn-save-token">保存到内存</button>
-      <button class="btn sec tiny" id="btn-unlock" style="display:none;">🔓 解锁</button>
-      <button class="btn sec tiny" id="btn-encrypt" style="display:none;">🔒 用密码加密</button>
+      <button class="btn sec tiny" id="btn-save-token">保存</button>
       <button class="btn sec tiny" id="btn-clear-token" style="display:none;">清除</button>
       <span class="hint" id="token-status"></span>
     </div>
@@ -419,12 +416,6 @@
   document.addEventListener('DOMContentLoaded', function () {
     var W = window.Wiki;
     var $ = function (id) { return document.getElementById(id); };
-
-    // 旧版 v1 明文 token 自动迁移到内存；内存里就有 token 了
-    try {
-      var legacy = localStorage.getItem(W.TOKEN_KEY);
-      if (legacy && !W.getToken()) W.setToken(legacy);
-    } catch (e) {}
 
     function getView() {
       return new URLSearchParams(location.search).get('view') === 'md' ? 'md' : 'table';
