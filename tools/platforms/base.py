@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+"""
+tools/platforms/base.py — 比赛平台抽象基类
+
+定义各 OJ (QOJ, Codeforces, AtCoder, ...) 都必须实现的接口。
+让 server.py / cli_main.py 跟具体 OJ 解耦——加新 OJ 只需写一个 client 类并注册。
+
+抽象方法 (各 OJ 必须实现):
+  - cookies_valid()             检查 cookie 是否还有效
+  - get_contest_meta(cid)       比赛标题 / 题数 / 起止时间
+  - get_user_submissions(cid, user)  某用户在该比赛的所有提交
+  - get_submission_code(sid)    取单份提交代码 + 语言
+"""
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import ClassVar
+
+
+@dataclass
+class ContestMeta:
+    """比赛元信息."""
+    platform: str
+    contest_id: str
+    title: str
+    problem_count: int
+    start_time: str | None = None     # ISO 8601
+    end_time: str | None = None       # ISO 8601
+    url: str = ""
+
+
+@dataclass
+class Submission:
+    """一条提交记录."""
+    platform: str
+    submission_id: str
+    user: str
+    problem: str                       # "A", "B", ... 或平台原样
+    verdict: str                       # "AC" / "WA" / "TLE" / "RE" / "MLE" / ...
+    submitted_at: str                 # ISO 8601
+    contest_time_seconds: int | None   # 赛中相对秒数; None = 赛后
+    tries: int = 1                     # 该 (user, problem) 的累计提交次数
+    language: str | None = None
+    code_length: int | None = None
+
+
+class PlatformError(RuntimeError):
+    """平台特定错误基类."""
+
+
+class CookieExpiredError(PlatformError):
+    """Cookie 失效 (401/403 或登录页 HTML)."""
+
+
+class CFBlockedError(PlatformError):
+    """被 Cloudflare 拦截."""
+
+
+class ParseError(PlatformError):
+    """HTML 结构变化, 解析失败."""
+
+
+class TimeoutError_(PlatformError):  # 避免跟 stdlib TimeoutError 冲突
+    """抓取超时."""
+
+
+class NotFoundError(PlatformError):
+    """比赛/提交不存在 (404)."""
+
+
+class PlatformClient(ABC):
+    """所有 OJ 客户端的抽象基类."""
+
+    # 子类必须设置 (例如 "qoj", "codeforces", "atcoder")
+    name: ClassVar[str] = ""
+
+    @abstractmethod
+    def cookies_valid(self) -> bool:
+        """本地 cookie 是否还存在 (粗略检查, 不一定真有效)."""
+
+    @abstractmethod
+    def get_contest_meta(self, contest_id: str) -> ContestMeta:
+        """获取比赛元信息. 404 抛 NotFoundError."""
+
+    @abstractmethod
+    def get_user_submissions(
+        self, contest_id: str, user: str,
+    ) -> list[Submission]:
+        """获取某用户在该比赛的所有提交 (赛中 + 赛后, 调用方按时间筛)."""
+
+    @abstractmethod
+    def get_submission_code(self, submission_id: str) -> tuple[str, str]:
+        """获取单份提交的代码 + 语言. 返回 (code, language)."""
+
+
+# === 注册表 ===
+
+_REGISTRY: dict[str, type[PlatformClient]] = {}
+
+
+def register(cls: type[PlatformClient]) -> type[PlatformClient]:
+    """装饰器: 注册一个平台 client. 同时验证 name 不为空."""
+    if not cls.name:
+        raise ValueError(f"{cls.__name__}.name 不能为空")
+    if cls.name in _REGISTRY:
+        raise ValueError(f"platform '{cls.name}' 重复注册")
+    _REGISTRY[cls.name] = cls
+    return cls
+
+
+def get_registry() -> dict[str, type[PlatformClient]]:
+    """返回当前已注册的所有平台 (供 /healthz / docs 用)."""
+    return dict(_REGISTRY)
+
+
+def get_client_class(name: str) -> type[PlatformClient]:
+    if name not in _REGISTRY:
+        raise ValueError(
+            f"不支持的平台: {name!r}. "
+            f"已注册: {list(_REGISTRY.keys())}"
+        )
+    return _REGISTRY[name]
