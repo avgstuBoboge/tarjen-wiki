@@ -40,6 +40,11 @@ from md_store import MdStore  # noqa: E402
 from git_ops import GitConflictError, GitOps, GitPushError  # noqa: E402
 from watchlist import Watchlist  # noqa: E402
 from codes_store import CodesStore, ensure_gitignore  # noqa: E402
+from import_logic import (  # noqa: E402
+    ApplyResult, UpdatePreview, UpsolvePreview,
+    apply_update, apply_upsolve, build_update_preview, build_upsolve_preview,
+    contest_meta_to_dict, make_client,
+)
 
 
 # === 配置 ===
@@ -522,6 +527,227 @@ def delete_contest(
         "commit_sha": sha[:8] if sha else "",
         "pushed": pushed,
     }
+
+
+# === 入口 (供 `python -m tools.server` 调用) ===
+
+# === Import endpoints (Phase 3.2) ===
+
+from platforms.base import (  # noqa: E402
+    CFBlockedError, CookieExpiredError, NotFoundError, ParseError,
+    PlatformError, get_client_class,
+)
+
+
+class UpdatePreviewRequest(BaseModel):
+    platform: str = "qoj"
+    contest_id: str
+    user: str | None = None      # None 时用 config.default_user
+    slug: str | None = None       # 覆盖 slug 生成
+
+
+class UpdateApplyRequest(BaseModel):
+    platform: str = "qoj"
+    preview: dict                  # 完整 preview (与 preview 响应一致)
+    overrides: dict = Field(default_factory=dict)
+    options: dict = Field(default_factory=dict)
+
+
+class UpsolvePreviewRequest(BaseModel):
+    platform: str = "qoj"
+    contest_id: str | None = None
+    slug: str | None = None
+    user: str | None = None
+    since: str | None = None      # ISO, 不传则自动推断
+
+
+class UpsolveApplyRequest(BaseModel):
+    platform: str = "qoj"
+    preview: dict
+    options: dict = Field(default_factory=dict)
+
+
+def _get_user(req_user: str | None) -> str:
+    """从 request 或 config 读默认 user."""
+    if req_user:
+        return req_user
+    cfg = state.config_dir / "config.json"
+    if cfg.exists():
+        import json
+        try:
+            data = json.loads(cfg.read_text(encoding="utf-8"))
+            users = data.get("default_user", {})
+            if isinstance(users, dict) and "qoj" in users:
+                return users["qoj"]
+        except (json.JSONDecodeError, KeyError):
+            pass
+    raise HTTPException(400, detail={
+        "code": "no_user_specified",
+        "message": "未指定 user 且 config 里没默认 user",
+    })
+
+
+def _platform_error_to_http(e: PlatformError) -> HTTPException:
+    """把 PlatformError 转成对应 HTTPException."""
+    if isinstance(e, CookieExpiredError):
+        return HTTPException(401, detail={"code": "qoj_cookie_expired",
+                                          "message": str(e)})
+    if isinstance(e, CFBlockedError):
+        return HTTPException(502, detail={"code": "qoj_cf_blocked",
+                                          "message": str(e)})
+    if isinstance(e, NotFoundError):
+        return HTTPException(404, detail={"code": "qoj_contest_not_found",
+                                          "message": str(e)})
+    if isinstance(e, ParseError):
+        return HTTPException(422, detail={"code": "qoj_parse_failed",
+                                          "message": str(e)})
+    return HTTPException(500, detail={"code": "platform_error",
+                                       "message": str(e)})
+
+
+@app.post("/import/update-preview")
+def import_update_preview(body: UpdatePreviewRequest):
+    user = _get_user(body.user)
+    try:
+        preview = build_update_preview(
+            platform=body.platform,
+            contest_id=body.contest_id,
+            user=user,
+            csv_store=state.csv_store,
+            config_dir=state.config_dir,
+            slug_override=body.slug,
+        )
+    except ValueError as e:
+        msg = str(e)
+        if "cookie_missing_for_platform" in msg:
+            raise HTTPException(401, detail={
+                "code": "cookies_missing_for_platform",
+                "message": f"cookie 文件不存在: {state.config_dir}/cookies/{body.platform}.txt",
+            })
+        raise HTTPException(400, detail={"code": "invalid_request",
+                                          "message": msg})
+    except PlatformError as e:
+        raise _platform_error_to_http(e)
+
+    return preview.to_dict()
+
+
+@app.post("/import/update-apply")
+def import_update_apply(body: UpdateApplyRequest):
+    preview_dict = body.preview
+    platform = preview_dict.get("platform", body.platform)
+
+    # 重建 preview 对象 (避免序列化/反序列化失真)
+    preview = UpdatePreview(
+        platform=platform,
+        contest_id=preview_dict["contest_id"],
+        username=preview_dict.get("username", ""),
+        record_state=preview_dict.get("record_state", "create_new"),
+        slug=preview_dict.get("slug", ""),
+        slug_exists=preview_dict.get("slug_exists", False),
+        contest=preview_dict.get("contest", {}),
+        problems=preview_dict.get("problems", []),
+        summary=preview_dict.get("summary", {}),
+        suggested=preview_dict.get("suggested", {}),
+    )
+
+    options = body.options
+    try:
+        result = apply_update(
+            preview=preview,
+            csv_store=state.csv_store,
+            md_store=state.md_store,
+            git_ops=state.git_ops,
+            overrides=body.overrides,
+            create_body=options.get("create_body", True),
+            run_sync=options.get("run_sync", True),
+            push=options.get("push", True),
+        )
+    except CsvValidationError:
+        raise  # 让全局 handler 处理
+    except PlatformError as e:
+        raise _platform_error_to_http(e)
+
+    return result.to_dict()
+
+
+@app.post("/import/upsolve-preview")
+def import_upsolve_preview(body: UpsolvePreviewRequest):
+    user = _get_user(body.user)
+    try:
+        preview = build_upsolve_preview(
+            platform=body.platform,
+            contest_id=body.contest_id,
+            slug=body.slug,
+            user=user,
+            csv_store=state.csv_store,
+            config_dir=state.config_dir,
+            since_override=body.since,
+        )
+    except ValueError as e:
+        msg = str(e)
+        if "slug_not_found_in_csv" in msg:
+            raise HTTPException(404, detail={
+                "code": "slug_not_found",
+                "message": msg,
+            })
+        raise HTTPException(400, detail={"code": "invalid_request",
+                                          "message": msg})
+    except PlatformError as e:
+        raise _platform_error_to_http(e)
+
+    return preview.to_dict()
+
+
+@app.post("/import/upsolve-apply")
+def import_upsolve_apply(body: UpsolveApplyRequest):
+    preview_dict = body.preview
+    preview = UpsolvePreview(
+        platform=preview_dict["platform"],
+        slug=preview_dict["slug"],
+        contest_id=preview_dict.get("contest_id"),
+        username=preview_dict.get("username", ""),
+        since=preview_dict.get("since", ""),
+        current_problems=preview_dict.get("current_problems", []),
+        changes=preview_dict.get("changes", []),
+        summary=preview_dict.get("summary", {}),
+    )
+
+    options = body.options
+    try:
+        result = apply_upsolve(
+            preview=preview,
+            csv_store=state.csv_store,
+            md_store=state.md_store,
+            git_ops=state.git_ops,
+            commit_message=options.get("commit_message"),
+            push=options.get("push", True),
+        )
+    except CsvValidationError:
+        raise
+    except PlatformError as e:
+        raise _platform_error_to_http(e)
+
+    return result.to_dict()
+
+
+@app.get("/import/contest/{cid}")
+def import_contest_meta(cid: str, platform: str = Query("qoj")):
+    """只取 contest meta, 不抓 submissions."""
+    try:
+        client = make_client(platform, state.config_dir)
+        meta = client.get_contest_meta(cid)
+    except ValueError as e:
+        if "cookie_missing" in str(e):
+            raise HTTPException(401, detail={
+                "code": "cookies_missing_for_platform",
+                "message": str(e),
+            })
+        raise HTTPException(400, detail={"code": "invalid_request",
+                                          "message": str(e)})
+    except PlatformError as e:
+        raise _platform_error_to_http(e)
+    return contest_meta_to_dict(meta)
 
 
 # === 入口 (供 `python -m tools.server` 调用) ===
