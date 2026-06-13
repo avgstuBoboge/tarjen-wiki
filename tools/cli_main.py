@@ -439,7 +439,7 @@ def add(slug, name, date, total, problems, tags, link, body, yes):
     click.echo(f"✓ {slug} 已写入 (commit {sha[:8] if sha else 'none'}, pushed={pushed})")
 
 
-@cli.command()
+@cli.command("set")
 @click.argument("slug")
 @click.option("--name")
 @click.option("--date")
@@ -449,7 +449,7 @@ def add(slug, name, date, total, problems, tags, link, body, yes):
 @click.option("--link")
 @click.option("--status", multiple=True, help="批量改状态: A=O B=Ø")
 @click.option("--yes", "-y", is_flag=True)
-def set(slug, name, date, total, problems, tags, link, status, yes):
+def set_cmd(slug, name, date, total, problems, tags, link, status, yes):
     """改一场的字段. --status 多次指定如: --status A=O --status B=Ø."""
     from csv_store import parse_problems
 
@@ -803,7 +803,8 @@ def codes(cid, platform, user, only_mine, only_watchlist, no_watchlist,
 @click.option("--problem", multiple=True)
 @click.option("--user", multiple=True)
 @click.option("--source", type=click.Choice(["mine", "watchlist", "sample", "other"]))
-def codes_list(cid, platform, problem, user, source):
+@click.option("--limit", type=int)
+def codes_list(cid, platform, problem, user, source, limit):
     """列出已抓的代码.
 
     新结构: ~/.local/share/wiki/codes/<platform>/<cid>/<problem>/<user>.<ext>

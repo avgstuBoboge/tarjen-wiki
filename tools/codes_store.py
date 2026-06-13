@@ -209,26 +209,33 @@ class CodesStore:
     # === 整场 contest ===
 
     def list_files(self, platform: str, cid: int | str, *,
-                   problem: str | None = None,
-                   user: str | None = None,
+                   problem: str | list[str] | None = None,
+                   user: str | list[str] | None = None,
                    source: Source | None = None) -> list[CodeFile]:
         """列出缓存的所有 (或筛选后的) 代码文件.
 
         兼容旧结构 (<root>/<cid>/<user>/<prob>.<ext>) 读取.
+        problem/user 接受 str 或 list[str] (CLI 传 tuple 进来).
         """
+        if isinstance(problem, str):
+            problem = [problem]
+        if isinstance(user, str):
+            user = [user]
         d = self._contest_dir(platform, cid)
         files: list[CodeFile] = []
         if d.exists():
             for prob_dir in sorted(d.iterdir()):
                 if not prob_dir.is_dir():
                     continue
-                if problem and prob_dir.name != problem:
+                if problem and prob_dir.name not in problem:
                     continue
                 # prob_dir 是题目目录 (<platform>/<cid>/<problem>/<user>.<ext>)
                 for f in sorted(prob_dir.iterdir()):
                     if not f.is_file() or f.suffix == ".tmp":
                         continue
                     user_name = f.stem
+                    if user and user_name not in user:
+                        continue
                     meta = self._lookup_index(platform, cid, prob_dir.name, user_name) or {}
                     files.append(CodeFile(
                         platform=platform,
@@ -266,7 +273,7 @@ class CodesStore:
                         source="other", contest_time=None,
                     ))
         if user:
-            files = [f for f in files if f.user == user]
+            files = [f for f in files if f.user in user]
         if source:
             files = [f for f in files if f.source == source]
         return files
