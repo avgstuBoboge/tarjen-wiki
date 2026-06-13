@@ -711,10 +711,14 @@ class QojClient(PlatformClient):
                 lang_match = RE_CODE_LANG.search(html)
                 language = lang_match.group(1).strip() if lang_match else ""
                 return code, language
-        # 3. 都没找到: 这题没 source code (special judge / interactive / 隐藏)
+        # 3. 都没找到: 这题没 source code.
+        # QOJ/UOJ 允许提交者隐藏自己的代码 (默认是公开的, 但可以设私密).
+        # 这种情况下别的用户看不到, 但 AC 状态 + test data 还能看.
+        # 真跑过 2521: Baneist G / fynfyn A / dXqwq H/I/M / rpy123 L / zxcgzx D 都
+        # 是这种情况 (提交者没开公开) — 不是 special judge / 交互题.
         raise ParseError(
             "找不到 source code (页面里没有 sh_ 标记的 <pre>, "
-            "可能是 special judge / 交互题 / 老 submission 不可见)"
+            "可能 1) 提交者设为私密 2) special judge / 交互题 3) 老 submission 不可见)"
         )
 
     # === 静态工具 ===
