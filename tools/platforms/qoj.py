@@ -237,14 +237,15 @@ class QojClient(PlatformClient):
             body = self._fetch_fn(path_or_url, cookie_str)
             status = 200
         else:
-            # 默认实现: urllib
-            import urllib.request
-            import urllib.error
+            # 默认实现: cloudscraper (绕 Cloudflare challenge + 带 cookie)
+            import cloudscraper
 
             url = path_or_url if path_or_url.startswith("http") else self.BASE_URL + path_or_url
-            req = urllib.request.Request(url, headers={
+
+            scraper = cloudscraper.create_scraper()
+            scraper.headers.update({
                 "Cookie": cookie_header(self.cookies),
-                "User-Agent": "Mozilla/5.0 (compatible; Wiki-Backend/1.0)",
+                "User-Agent": "Mozilla/5.0 (compatible; Wiki-Backend/1.0; +https://github.com/tarjen/tarjen-wiki)",
                 "Accept": "text/html,application/xhtml+xml",
             })
 
@@ -255,12 +256,12 @@ class QojClient(PlatformClient):
             self._last_request_at = time.time()
 
             try:
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    status = resp.status
-                    body = resp.read().decode("utf-8", errors="replace")
-            except urllib.error.HTTPError as e:
-                status = e.code
-                body = e.read().decode("utf-8", errors="replace") if e.fp else ""
+                resp = scraper.get(url, timeout=self.timeout)
+                status = resp.status_code
+                body = resp.text
+            except Exception as e:
+                # cloudscraper 可能在网络错误时抛
+                raise PlatformError(f"fetch 失败: {e}") from e
 
         # 检查登录态 / CF / 错误状态 (无论 body 来自哪)
         if status in (401, 403) or self._is_login_page(body):

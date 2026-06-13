@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en" >
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+				<title>Login - QOJ.ac</title>
+		
+		<script type="text/javascript">uojHome = '//qoj.ac'</script>
+	
+		<!-- jQuery (necessary for Bootstrap\'s JavaScript plugins) -->
+		<script type="text/javascript" src="//qoj.ac/js/jquery.min.js"></script>
+
+		<!-- jQuery autosize -->
+		<script type="text/javascript" src="//qoj.ac/js/jquery.autosize.min.js"></script>		<script type="text/javascript">
+			$(document).ready(function() {
+				$('textarea').autosize();
+			});
+		</script>
+		
+		<!-- jQuery cookie -->
+		<script type="text/javascript" src="//qoj.ac/js/jquery.cookie.min.js"></script>		
+		<!-- jQuery modal -->
+		<script type="text/javascript" src="//qoj.ac/js/jquery.modal.js"></script>		
+				<!-- Bootstrap core CSS -->
+		<link type="text/css" rel="stylesheet" href="//qoj.ac/css/bootstrap.min.css?v=2019.5.31" />		<!-- Bootstrap Glyphicons CSS-->
+		<link type="text/css" rel="stylesheet" href="//qoj.ac/css/bootstrap-glyphicons.min.css?v=2019.5.31" />
+		<!-- Custom styles for this template -->
+		<link type="text/css" rel="stylesheet" href="//qoj.ac/css/uoj-theme.css?v=4.3.2" />		<!-- Include all compiled plugins (below), or include individual files as needed -->
+		<script type="text/javascript" src="//qoj.ac/js/popper.min.js?v=2019.5.31"></script>		<script type="text/javascript" src="//qoj.ac/js/bootstrap.min.js?v=2019.5.31"></script>		
+		<!-- Color converter -->
+		<script type="text/javascript" src="//qoj.ac/js/color-converter.min.js"></script>		
+		<!-- uoj -->
+		<script type="text/javascript" src="//qoj.ac/js/uoj.js?v=2026.06.10"></script>		
+		<!-- readmore -->
+		<script type="text/javascript" src="//qoj.ac/js/readmore/readmore.min.js"></script>		
+		<!-- LAB -->
+		<script type="text/javascript" src="//qoj.ac/js/LAB.min.js"></script>
+		<link rel="shortcut icon" href="/" />
+
+		<link type="text/css" rel="stylesheet" href="//qoj.ac/css/flag-icon-css/css/flag-icon.css" />		
+				
+		
+<link type="text/css" rel="stylesheet" href="//qoj.ac/css/font-awesome/5.13.0/all.min.css" />
+				<!-- MD5 -->
+		<script type="text/javascript" src="//qoj.ac/js/md5.min.js"></script>				
+				
+				
+				<!-- MathJax -->
+		<script type="text/x-mathjax-config">
+			MathJax.Hub.Config({
+				showProcessingMessages: false,
+				tex2jax: {
+					inlineMath: [["$", "$"], ["\\\\(", "\\\\)"]],
+					processEscapes:true
+				},
+				menuSettings: {
+					zoom: "Hover"
+    			}
+			});
+		</script>
+		<script src="/js/mathjax/MathJax.js?config=TeX-AMS_SVG"></script>
+				
+				
+		
+				
+				
+				
+				
+				<!-- shjs -->
+		<link type="text/css" rel="stylesheet" href="//qoj.ac/css/sh_typical.min.css" />		<script type="text/javascript" src="//qoj.ac/js/sh_main.min.js"></script>		<script type="text/javascript">$(document).ready(function(){sh_highlightDocument()})</script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/a11y-light.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+
+				
+		
+		
+				<!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+		<!--[if lt IE 9]>
+			<script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+			<script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+		<![endif]-->
+		
+		<script type="text/javascript">
+		before_window_unload_message = null;
+		$(window).on('beforeunload', function() {
+			if (before_window_unload_message !== null) {
+			    return before_window_unload_message;
+			}
+		});
+		</script>
+		
+			</head>
+	<body role="document">
+		<div class="container" role="main">
+						<div>
+				<ul class="nav nav-pills float-right" role="tablist">
+									<li class="nav-item" role="presentation"><a class="nav-link" href="//qoj.ac/login">Login</a></li>
+					<li class="nav-item" role="presentation"><a class="nav-link" href="//qoj.ac/register">Register</a></li>
+								</ul>
+				<h1 class="d-none d-sm-block">QOJ.ac</h1>
+				<h1 class="d-block d-sm-none">QOJ</h1>
+			</div>
+			
+			<div class="navbar navbar-light navbar-expand-md bg-light mb-4" role="navigation">
+	<a class="navbar-brand" href="//qoj.ac">QOJ</a>
+	<button type="button" class="navbar-toggler collapsed" data-toggle="collapse" data-target=".navbar-collapse">
+		<span class="navbar-toggler-icon"></span>
+	</button>
+	<div class="collapse navbar-collapse" id="navbarSupportedContent">
+				<ul class="nav navbar-nav mr-auto navbar-transparent">
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/contests"><span class="glyphicon glyphicon-stats"></span> Contests</a></li>
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/category"><span class="glyphicon glyphicon-folder-close"></span> Category</a></li>
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/problems"><span class="glyphicon glyphicon-list-alt"></span> Problems</a></li>
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/submissions"><span class="glyphicon glyphicon-tasks"></span> Submissions</a></li>
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/hacks"><span class="glyphicon glyphicon-flag"></span> Hack!</a></li>
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/blogs"><span class="glyphicon glyphicon-book"></span> Blogs</a></li>
+
+		</ul>
+		<form id="form-search-problem" class="form-inline my-2 my-lg-0" method="get">
+			 <div class="input-group">
+				<input type="text" class="form-control" name="search" id="input-search" placeholder="Search the problem set" />  
+				<div class="input-group-append">
+					<button type="submit" class="btn btn-search btn-outline-primary" id="submit-search"><span class="glyphicon glyphicon-search"></span></button>
+				</div>
+			</div>
+		</form>
+			</div><!--/.nav-collapse -->
+</div>
+
+<script type="text/javascript">
+	var zan_link = '';
+	$('#form-search-problem').submit(function(e) {
+		e.preventDefault();
+		
+		url = "//qoj.ac/problems";
+		qs = [];
+		$(['search']).each(function () {
+			if ($('#input-' + this).val()) {
+				qs.push(this + '=' + encodeURIComponent($('#input-' + this).val()));
+			}
+		});
+		if (qs.length > 0) {
+			url += '?' + qs.join('&');
+		}
+		location.href = url;
+	});
+</script>
+
+						
+			<div class="uoj-content">
+<h2 class="page-header">Login</h2>
+<form id="form-login" class="form-horizontal" method="post">
+  <div id="div-username" class="form-group">
+    <label for="input-username" class="col-sm-2 control-label">Username</label>
+    <div class="col-sm-3">
+      <input type="text" class="form-control" id="input-username" name="username" placeholder="Enter your username" maxlength="25" />
+      <span class="help-block" id="help-username"></span>
+    </div>
+  </div>
+  <div id="div-password" class="form-group">
+    <label for="input-password" class="col-sm-2 control-label">Password</label>
+    <div class="col-sm-3">
+      <input type="password" class="form-control" id="input-password" name="password" placeholder="Enter your password" maxlength="20" />
+      <span class="help-block" id="help-password"></span>
+    </div>
+  </div>
+  <div class="form-group">
+    <div class="col-sm-offset-2 col-sm-3">
+      <button type="submit" id="button-submit" class="btn btn-secondary">Submit</button>
+    </div>
+  </div>
+</form>
+<script type="text/javascript">
+function validateLoginPost() {
+	var ok = true;
+	ok &= getFormErrorAndShowHelp('username', validateUsername);
+	ok &= getFormErrorAndShowHelp('password', validatePassword);
+	return ok;
+}
+
+function submitLoginPost() {
+	if (!validateLoginPost()) {
+		return false;
+	}
+	
+	$.post('/login', {
+		_token : "TzkW9OvCDEYvQMX8LiELi9ICXp4LiQOiEAvSVwVxozOx6vwp4zYEmHAm4ufn",
+		login : '',
+		username : $('#input-username').val(),
+		password : md5($('#input-password').val()),
+		trust : '',
+	}, function(msg) {
+		if (msg == 'ok') {
+			var prevUrl = document.referrer;
+			if (prevUrl == '' || /.*\/login.*/.test(prevUrl) || /.*\/logout.*/.test(prevUrl) || /.*\/register.*/.test(prevUrl) || /.*\/reset-password.*/.test(prevUrl)) {
+				prevUrl = '/';
+			};
+			window.location.href = prevUrl;
+		} else if (msg == 'banned') {
+			$('#div-username').addClass('has-error');
+			$('#help-username').html('This user has no permissions. Please contact an administrator.');
+		} else if (msg == 'expired') {
+			$('#div-username').addClass('has-error');
+			$('#help-username').html('Page session has expired.');
+		} else if (msg == 'secure') {
+			$('#help-username').html('This login request cannot be processed for security reasons.');
+		} else if (msg == '2fa') {	
+			$('#help-username').html('Two-factor authentication is required. <a href="/login/2fa">Proceed to 2FA.</a>');
+		} else if (msg == 'pending_2fa') {	
+			$('#help-username').html('As an administrator without a token, go to the <a href="https://love.qingyu.us?username='+$('#input-username').val()+'">QOJ <i>NextGeneration</i>™ verification system</a> to log in to the system.');
+		}else if (msg == 'failed') {
+			$('#div-password').addClass('has-error');
+			$('#help-password').html('Incorrect username or password. <a href="/forgot-password">Forgot password?</a>');
+		} else {
+			$('#div-password').addClass('has-error');
+			$('#help-password').html('Login failed: ' + msg + '');
+		}
+	});
+	return true;
+}
+
+$(document).ready(function() {
+	$('#form-login').submit(function(e) {
+		e.preventDefault();
+		submitLoginPost();
+	});
+});
+
+</script>
+			</div>
+						<div class="uoj-footer">
+				<div class="btn-group dropright mb-3">
+					<button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-toggle="dropdown">
+						<span class="glyphicon glyphicon-globe"></span> English					</button>
+					<div class="dropdown-menu">
+					<a class="dropdown-item" href="//qoj.ac/login?locale=ar">العربية</a>
+						<a class="dropdown-item" href="//qoj.ac/login?locale=en">English</a>
+						<a class="dropdown-item" href="//qoj.ac/login?locale=es">Español</a>
+						<a class="dropdown-item" href="//qoj.ac/login?locale=fr">Français</a>
+						<a class="dropdown-item" href="//qoj.ac/login?locale=ja">日本語</a>
+						<a class="dropdown-item" href="//qoj.ac/login?locale=zh-cn">简体中文</a>
+						<a class="dropdown-item" href="//qoj.ac/login?locale=zh-tw">繁體中文</a>
+					</div>
+				</div>
+				
+				<ul class="list-inline"><li class="list-inline-item">QOJ.ac</li> | <li class="list-inline-item"> <a href="https://qoj.ac">QOJ 4.5.43.0.dev</a> | <a href="https://github.com/UniversalOJ/UOJ-System" target="_blank">Based on UOJ - OpenSource Project</a></li></ul>
+				<p>Made with ❤️ by <a class="uoj-username" href="/user/profile/Qingyu" style="color:rgb(255, 51, 204)">Qingyu✨</a></p>
+				<p>Server Time: 2026-06-13 13:22:59 </a></p>
+			</div>
+					</div>
+		<!-- /container -->
+	<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a0aea9239ff92393',t:'MTc4MTMyODE3OQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"62952307bd8640429081742c37f14f92","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
