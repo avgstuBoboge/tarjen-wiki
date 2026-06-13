@@ -2,16 +2,29 @@
 """
 tools/cli_main.py — Wiki CLI
 
+直接调用各模块, 不通过 HTTP. 因为所有数据/操作都是本地的:
+  - contests.csv (本地)
+  - git (本地仓库)
+  - QOJ (唯一网络出口)
+
 用法:
-  python3 -m tools.cli_main <command> [args]
-或装到 PATH:
-  ln -s $(pwd)/.venv/bin/python /usr/local/bin/wiki -t /usr/local/bin
-  # 或者 bootstrap.sh 加 wrapper
+  wiki doctor                         # 健康检查
+  wiki list [--since] [--tag] [--sort]  # 列比赛
+  wiki show <slug>                    # 看一场
+  wiki update <cid> [--user X] [--dry-run] [-y]
+  wiki upsolve <slug|cid> [--user X] [--dry-run] [-y]
+  wiki set <slug> --status A=O B=Ø    # 改字段
+  wiki rm <slug>
+  wiki edit <slug>                    # $EDITOR 改 md 详情页
+  wiki codes <cid> [--only-mine] [--sample N] [-y]   # 抓代码
+  wiki cookies status | import <file>
+  wiki watchlist list | add X | remove X
+  wiki serve                          # 可选: 跑 mkdocs preview
 
 设计原则:
-  - 调 HTTP API (localhost:8001), 不直连 store
-  - 服务没起时报清晰错误 (而非 traceback)
-  - 默认每个 mutating 命令有确认 (--yes 跳过)
+  - 直接 import tools/* 模块, 不发 HTTP
+  - 默认每个 mutating 命令有 Y/n 确认 (--yes 跳过)
+  - 错误打印到 stderr, exit code != 0
 """
 from __future__ import annotations
 
@@ -19,7 +32,6 @@ import json
 import os
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 # tools/ 不是 package, 让 module 形式的调用也能找到兄弟模块
@@ -27,41 +39,80 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-import click
-import httpx
+import click  # noqa: E402
+
+from csv_store import Contest, CsvStore  # noqa: E402
+from md_store import MdStore  # noqa: E402
+from git_ops import GitOps, GitPushError  # noqa: E402
+from watchlist import Watchlist  # noqa: E402
+from codes_store import CodesStore, ensure_gitignore  # noqa: E402
+from codes_logic import FetchRequest, fetch_codes  # noqa: E402
+from import_logic import (  # noqa: E402
+    ApplyResult, UpdatePreview, UpsolvePreview,
+    apply_update, apply_upsolve, build_update_preview, build_upsolve_preview,
+    make_client, _slug_from_meta,
+)
+from platforms import get_client_class  # noqa: E402
+
 
 # === 配置 ===
 
-DEFAULT_BASE_URL = os.environ.get("WIKI_API", "http://127.0.0.1:8001")
-DEFAULT_TIMEOUT = 30
+def repo_path() -> Path:
+    p = os.environ.get("REPO_PATH", "").strip()
+    return Path(p).expanduser() if p else Path.cwd()
 
 
-def get_client(base_url: str = DEFAULT_BASE_URL) -> httpx.Client:
-    return httpx.Client(base_url=base_url, timeout=DEFAULT_TIMEOUT)
+def config_dir() -> Path:
+    p = os.environ.get("CONFIG_DIR", "").strip()
+    if p:
+        return Path(p).expanduser()
+    return Path.home() / ".config" / "wiki"
 
 
-def call_api(method: str, path: str, **kwargs) -> dict:
-    """调 API. 错误时打印并退出."""
-    try:
-        r = get_client().request(method, path, **kwargs)
-        if r.status_code >= 400:
-            data = r.json()
-            err = data.get("error", {})
-            code = err.get("code", "unknown")
-            msg = err.get("message", r.text)
-            click.echo(f"✗ {code}: {msg}", err=True)
-            sys.exit(1)
-        return r.json()
-    except httpx.ConnectError:
-        click.echo("✗ 无法连接后端 (server 没起?). 跑: wiki serve --install", err=True)
-        sys.exit(1)
-    except httpx.HTTPError as e:
-        click.echo(f"✗ HTTP error: {e}", err=True)
-        sys.exit(1)
+def codes_dir() -> Path:
+    p = os.environ.get("CODES_DIR", "").strip()
+    if p:
+        return Path(p).expanduser()
+    return Path.home() / ".local" / "share" / "wiki" / "codes"
 
+
+# === 共享 state (per-process) ===
+
+class App:
+    """CLI 运行时的全局 state. 启动时初始化一次."""
+
+    def __init__(self):
+        self.repo_path: Path = repo_path()
+        self.config_dir: Path = config_dir()
+        self.codes_dir: Path = codes_dir()
+        self.csv: CsvStore | None = None
+        self.md: MdStore | None = None
+        self.git: GitOps | None = None
+        self.watchlist_obj: Watchlist | None = None
+        self.codes_store: CodesStore | None = None
+
+    def init(self):
+        # 重新读 env (每次都读, 支持 REPO_PATH 等环境变量在测试间变化)
+        self.repo_path: Path = repo_path()
+        self.config_dir: Path = config_dir()
+        self.codes_dir: Path = codes_dir()
+
+        self.csv = CsvStore(self.repo_path / "contests.csv")
+        self.csv.load()
+        self.md = MdStore(self.repo_path / "docs" / "contests")
+        self.git = GitOps(self.repo_path)
+        self.watchlist_obj = Watchlist(self.config_dir / "watchlist.txt")
+        self.watchlist_obj.load()
+        self.codes_store = CodesStore(self.codes_dir)
+        ensure_gitignore(self.codes_dir)
+
+
+app = App()
+
+
+# === 工具 ===
 
 def confirm(prompt: str, default_no: bool = True) -> bool:
-    """Y/n 确认. default_no=True 时回车=N."""
     suffix = "[Y/n]" if not default_no else "[y/N]"
     resp = click.prompt(f"{prompt} {suffix}", default="", show_default=False)
     resp = resp.strip().lower()
@@ -70,48 +121,42 @@ def confirm(prompt: str, default_no: bool = True) -> bool:
     return resp in ("y", "yes")
 
 
+def load_config_json() -> dict:
+    cfg_path = app.config_dir / "config.json"
+    if not cfg_path.exists():
+        return {}
+    try:
+        return json.loads(cfg_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+
+
+def get_user(override: str | None, platform: str = "qoj") -> str:
+    """从 CLI 参数或 config 读 user."""
+    if override:
+        return override
+    cfg = load_config_json()
+    users = cfg.get("default_user", {})
+    if isinstance(users, dict):
+        u = users.get(platform)
+        if u:
+            return u
+    # fallback: 顶层字段 (兼容老 config)
+    legacy = cfg.get(f"{platform}_username")
+    if legacy:
+        return legacy
+    click.echo(f"✗ 没指定 user 且 config 里没 default_user.{platform}", err=True)
+    sys.exit(1)
+
+
 # === CLI group ===
 
 @click.group()
-@click.option("--api", default=DEFAULT_BASE_URL, help="Backend base URL")
 @click.pass_context
-def cli(ctx, api):
+def cli(ctx):
     """Wiki backend CLI."""
     ctx.ensure_object(dict)
-    ctx.obj["api"] = api
-
-
-# === serve ===
-
-@cli.command()
-@click.option("--install", is_flag=True, help="装 systemd 单元")
-@click.option("--uninstall", is_flag=True, help="卸 systemd 单元")
-@click.option("--status", "status_flag", is_flag=True, help="看状态")
-@click.option("--host", default="127.0.0.1")
-@click.option("--port", default=8001, type=int)
-def serve(install, uninstall, status_flag, host, port):
-    """管理后端服务."""
-    if install:
-        # 调用 bootstrap.sh --install-service (TODO: 后续 phase)
-        click.echo("✗ 还没实现: 跑 bootstrap.sh --install-service")
-        sys.exit(1)
-    if uninstall:
-        click.echo("✗ 还没实现")
-        sys.exit(1)
-    if status_flag:
-        # systemctl --user status wiki-backend
-        click.echo("✗ 还没实现")
-        sys.exit(1)
-    # 否则前台启动
-    import uvicorn
-    os.environ["BIND"] = host
-    os.environ["PORT"] = str(port)
-    # 设 cwd 到 repo root (为了 tools/* 相对 import)
-    repo_root = Path(__file__).resolve().parent.parent
-    os.chdir(str(repo_root))
-    sys.path.insert(0, str(repo_root / "tools"))
-    import server
-    uvicorn.run(server.app, host=host, port=port, log_level="info")
+    app.init()
 
 
 # === doctor ===
@@ -119,47 +164,77 @@ def serve(install, uninstall, status_flag, host, port):
 @cli.command()
 def doctor():
     """健康检查."""
-    data = call_api("GET", "/healthz")
-    click.echo(f"✓ 后端在跑 (uptime {data.get('uptime_seconds', '?')}s)")
-    click.echo(f"  仓库: {data['config']['repo_path']}")
-    click.echo(f"  比赛数: {data['csv']['contests']}")
-    click.echo(f"  watchlist: {data['watchlist_count']} 人")
-    if data.get("repo"):
-        r = data["repo"]
-        if r["clean"]:
-            click.echo(f"  git: {r['branch']} clean, ahead={r['ahead']}")
-        else:
-            click.echo(f"  ⚠ git dirty / ahead={r['ahead']} behind={r['behind']}")
+    repo_status = app.git.status()
+    click.echo(f"✓ 数据 store 加载完成")
+    click.echo(f"  仓库: {app.repo_path}")
+    click.echo(f"  比赛: {len(app.csv)}")
+    click.echo(f"  watchlist: {len(app.watchlist_obj)} 人")
+    if repo_status.clean:
+        click.echo(f"  git: {repo_status.branch} clean, ahead={repo_status.ahead}")
+    else:
+        click.echo(f"  ⚠ git dirty / ahead={repo_status.ahead} behind={repo_status.behind}")
+
+    # QOJ cookie status
+    cookie_path = app.config_dir / "cookies" / "qoj.txt"
+    if cookie_path.exists():
+        click.echo(f"  QOJ cookie: {cookie_path} ({cookie_path.stat().st_size} bytes)")
+    else:
+        click.echo(f"  QOJ cookie: ✗ 未配置 (跑 wiki cookies import ...)")
 
 
 # === list / show ===
 
 @cli.command("list")
 @click.option("--since", help="YYYY-MM-DD")
+@click.option("--until", help="YYYY-MM-DD")
 @click.option("--tag", multiple=True)
 @click.option("--solved-min", type=int)
 @click.option("--sort", default="date", type=click.Choice(["date", "solved", "rate", "total"]))
+@click.option("--order", default="desc", type=click.Choice(["asc", "desc"]))
 @click.option("--limit", type=int)
 @click.option("--json", "json_out", is_flag=True, help="输出 JSON")
-def list_cmd(since, tag, solved_min, sort, limit, json_out):
+def list_cmd(since, until, tag, solved_min, sort, order, limit, json_out):
     """列出比赛."""
-    params = {}
-    if since: params["since"] = since
-    if tag: params["tag"] = list(tag)
-    if solved_min is not None: params["solved_min"] = solved_min
-    if sort: params["sort"] = sort
-    if limit: params["limit"] = limit
-    data = call_api("GET", "/contests", params=params)
+    contests = list(app.csv.all())
+    if since:
+        contests = [c for c in contests if c.iso_date >= since]
+    if until:
+        contests = [c for c in contests if c.iso_date <= until]
+    if tag:
+        norm_tag = set(t.lstrip("#") for t in tag)
+        contests = [
+            c for c in contests
+            if norm_tag.intersection(t.lstrip("#") for t in c.tags_list)
+        ]
+    if solved_min is not None:
+        contests = [c for c in contests if c.solved >= solved_min]
+
+    if sort == "date":
+        key = lambda c: c.iso_date
+    elif sort == "solved":
+        key = lambda c: c.solved
+    elif sort == "rate":
+        key = lambda c: c.solved / c.total if c.total else 0
+    elif sort == "total":
+        key = lambda c: c.total
+    contests.sort(key=key, reverse=(order == "desc"))
+    if limit:
+        contests = contests[:limit]
+
     if json_out:
-        click.echo(json.dumps(data, ensure_ascii=False, indent=2))
+        click.echo(json.dumps([{
+            "slug": c.slug, "name": c.name, "date": c.date,
+            "solved": c.solved, "in_contest": c.in_contest_solved,
+            "total": c.total, "tags": c.tags_list,
+        } for c in contests], ensure_ascii=False, indent=2))
         return
 
-    click.echo(f"共 {data['count']} 场")
-    for c in data["contests"]:
-        body_mark = "📝" if c["body_exists"] else "  "
+    click.echo(f"共 {len(contests)} 场")
+    for c in contests:
+        body_mark = "📝" if app.md.exists(c.slug) else "  "
         click.echo(
-            f"  {c['date']:12} {c['slug']:35} "
-            f"{c['solved']}/{c['in_contest']}/{c['total']:2}  {body_mark}"
+            f"  {c.date:12} {c.slug:35} "
+            f"{c.solved}/{c.in_contest_solved}/{c.total:2}  {body_mark}"
         )
 
 
@@ -168,17 +243,201 @@ def list_cmd(since, tag, solved_min, sort, limit, json_out):
 @click.option("--body/--no-body", default=True)
 def show(slug, body):
     """查看一场比赛."""
-    data = call_api("GET", f"/contests/{slug}")
-    click.echo(f"slug: {data['slug']}")
-    click.echo(f"name: {data['name']}")
-    click.echo(f"date: {data['date']}")
-    click.echo(f"solved: {data['solved']} (赛中 {data['in_contest']}, 补题 {data['upsolved']}) / {data['total']}")
-    click.echo(f"tags: {' '.join(data['tags'])}")
-    click.echo(f"link: {data['link']}")
-    click.echo(f"problems: {''.join(data['problems'])}")
-    if body and data.get("body"):
+    c = app.csv.get(slug)
+    if c is None:
+        click.echo(f"✗ slug 不存在: {slug}", err=True)
+        sys.exit(1)
+    click.echo(f"slug: {c.slug}")
+    click.echo(f"name: {c.name}")
+    click.echo(f"date: {c.date}")
+    click.echo(f"solved: {c.solved} (赛中 {c.in_contest_solved}, 补题 {c.upsolved}) / {c.total}")
+    click.echo(f"tags: {' '.join(c.tags_list) or '(无)'}")
+    click.echo(f"link: {c.link or '(无)'}")
+    click.echo(f"problems: {';'.join(c.problems)}")
+    if body and app.md.exists(slug):
         click.echo("\n--- body ---")
-        click.echo(data["body"])
+        click.echo(app.md.read(slug))
+
+
+# === CRUD: add / set / rm / edit ===
+
+@cli.command()
+@click.option("--slug", required=True)
+@click.option("--name", required=True)
+@click.option("--date", required=True, help="YYYY.M.D")
+@click.option("--total", required=True, type=int)
+@click.option("--problems", required=True, help='分号分隔, 例 "O;O;.;O"')
+@click.option("--tags", default="")
+@click.option("--link", default="")
+@click.option("--body", default=None, help="md 详情页内容")
+@click.option("--yes", "-y", is_flag=True)
+def add(slug, name, date, total, problems, tags, link, body, yes):
+    """手工新增一场比赛 (不走 QOJ)."""
+    from csv_store import parse_problems
+    probs = parse_problems(problems)
+    contest = Contest(
+        slug=slug, name=name, date=date, solved=0, total=total,
+        problems=probs, link=link, tags=tags,
+    )
+    if not yes and not confirm("确认写入?"):
+        click.echo("已取消")
+        return
+
+    app.csv.add(contest)
+    app.csv.save()
+
+    if body:
+        app.md.write(slug, body)
+    elif not app.md.exists(slug):
+        app.md.write(slug, app.md.placeholder(contest))
+
+    try:
+        _run_sync()
+    except Exception as e:
+        click.echo(f"  ⚠ sync.py 失败: {e}", err=True)
+
+    try:
+        sha, pushed = app.git.commit_and_push(
+            f"add({slug}): via cli", ["contests.csv", f"docs/contests/{slug}.md"]
+        )
+    except GitPushError as e:
+        click.echo(f"⚠ commit 成功但 push 失败: {e}", err=True)
+        click.echo(f"✓ {slug} 已写入 (commit 本地成功, 稍后手动 wiki push)")
+        return
+
+    if not pushed and sha:
+        click.echo(f"⚠ push 失败但 commit 成功 ({sha[:8]}), 稍后手动 wiki push",
+                  err=True)
+    click.echo(f"✓ {slug} 已写入 (commit {sha[:8] if sha else 'none'}, pushed={pushed})")
+
+
+@cli.command()
+@click.argument("slug")
+@click.option("--name")
+@click.option("--date")
+@click.option("--total", type=int)
+@click.option("--problems", help='分号分隔, 例 "O;O;.;O"')
+@click.option("--tags")
+@click.option("--link")
+@click.option("--status", multiple=True, help="批量改状态: A=O B=Ø")
+@click.option("--yes", "-y", is_flag=True)
+def set(slug, name, date, total, problems, tags, link, status, yes):
+    """改一场的字段. --status 多次指定如: --status A=O --status B=Ø."""
+    from csv_store import parse_problems
+
+    fields = {}
+    if name: fields["name"] = name
+    if date: fields["date"] = date
+    if total: fields["total"] = total
+    if problems:
+        fields["problems"] = parse_problems(problems)
+    if tags is not None: fields["tags"] = tags
+    if link is not None: fields["link"] = link
+
+    # --status A=O B=Ø 形式
+    if status:
+        # 拿现有 problems
+        c = app.csv.get(slug)
+        if c is None:
+            click.echo(f"✗ slug 不存在: {slug}", err=True)
+            sys.exit(1)
+        new_probs = list(c.problems)
+        for s in status:
+            if "=" not in s:
+                click.echo(f"✗ --status 格式错误: {s} (要 LETTER=STATUS)", err=True)
+                sys.exit(1)
+            letter, st = s.split("=", 1)
+            idx = ord(letter.upper()) - ord("A")
+            if 0 <= idx < len(new_probs):
+                new_probs[idx] = st
+            else:
+                click.echo(f"⚠ 跳过 {letter} (超出题目范围)", err=True)
+        fields["problems"] = new_probs
+
+    if not fields:
+        click.echo("✗ 没指定任何字段", err=True)
+        sys.exit(1)
+
+    if not yes and not confirm(f"确认更新 {slug} ({len(fields)} 个字段)?"):
+        click.echo("已取消")
+        return
+
+    app.csv.update(slug, **fields)
+    app.csv.save()
+    try:
+        _run_sync()
+    except Exception:
+        pass
+    try:
+        sha, pushed = app.git.commit_and_push(
+            f"update({slug}): via cli", ["contests.csv"]
+        )
+    except GitPushError as e:
+        click.echo(f"⚠ push 失败但 commit 成功: {e}", err=True)
+        click.echo(f"✓ {slug} 已更新 (commit 本地成功)")
+        return
+    if not pushed and sha:
+        click.echo(f"⚠ push 失败但 commit 成功 ({sha[:8]})", err=True)
+    click.echo(f"✓ {slug} 已更新 (commit {sha[:8] if sha else 'none'})")
+
+
+@cli.command()
+@click.argument("slug")
+@click.option("--keep-body", is_flag=True)
+@click.option("--yes", "-y", is_flag=True)
+def rm(slug, keep_body, yes):
+    """删除一场比赛."""
+    if app.csv.get(slug) is None:
+        click.echo(f"✗ slug 不存在: {slug}", err=True)
+        sys.exit(1)
+    if not yes and not confirm(f"确认删除 {slug}?"):
+        click.echo("已取消")
+        return
+    app.csv.delete(slug)
+    app.csv.save()
+    body_removed = False
+    if not keep_body:
+        body_removed = app.md.delete(slug)
+    try:
+        _run_sync()
+    except Exception:
+        pass
+    paths = ["contests.csv"]
+    if body_removed:
+        paths.append(f"docs/contests/{slug}.md")
+    try:
+        sha, pushed = app.git.commit_and_push(f"remove({slug}): via cli", paths)
+    except GitPushError as e:
+        click.echo(f"⚠ push 失败但 commit 成功: {e}", err=True)
+        click.echo(f"✓ {slug} 已删除 (本地)")
+        return
+    click.echo(f"✓ {slug} 已删除")
+
+
+@cli.command()
+@click.argument("slug")
+def edit(slug):
+    """用 $EDITOR 改 md 详情页, 保存后自动 commit + push."""
+    if app.csv.get(slug) is None:
+        click.echo(f"✗ slug 不存在: {slug}", err=True)
+        sys.exit(1)
+    target = app.md._path(slug)
+    if not target.exists():
+        # 用占位模板初始化
+        target.write_text(app.md.placeholder(app.csv.get(slug)), encoding="utf-8")
+    editor = os.environ.get("EDITOR", "vi")
+    click.echo(f"打开 {editor} {target} ...")
+    subprocess.run([editor, str(target)], check=True)
+
+    try:
+        sha, pushed = app.git.commit_and_push(
+            f"update({slug}): body via editor", [f"docs/contests/{slug}.md"]
+        )
+    except GitPushError as e:
+        click.echo(f"⚠ push 失败但 commit 成功: {e}", err=True)
+        click.echo(f"✓ 已更新 (本地)")
+        return
+    click.echo(f"✓ 已更新 (commit {sha[:8] if sha else 'none'})")
 
 
 # === update / upsolve (核心) ===
@@ -186,50 +445,53 @@ def show(slug, body):
 @cli.command()
 @click.argument("cid")
 @click.option("--platform", default="qoj")
-@click.option("--user", default=None, help="QOJ 用户名 (默认从 config)")
-@click.option("--yes", "-y", is_flag=True, help="跳过确认")
+@click.option("--user", default=None)
+@click.option("--yes", "-y", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 @click.option("--slug", default=None)
 def update(cid, platform, user, yes, dry_run, slug):
-    """从 OJ 导入一场比赛 (赛时表现).
+    """从 OJ 导入一场比赛 (赛时表现)."""
+    user = get_user(user, platform)
 
-    CID 是 OJ 比赛 ID (QOJ 用整数).
+    try:
+        preview = build_update_preview(
+            platform=platform,
+            contest_id=str(cid),
+            user=user,
+            csv_store=app.csv,
+            config_dir=app.config_dir,
+            slug_override=slug,
+        )
+    except ValueError as e:
+        msg = str(e)
+        if "cookie_missing" in msg:
+            click.echo(f"✗ cookie 未配置: {app.config_dir}/cookies/{platform}.txt", err=True)
+        else:
+            click.echo(f"✗ {msg}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"✗ {type(e).__name__}: {e}", err=True)
+        sys.exit(1)
 
-    示例:
-      wiki update 2564
-      wiki update 2564 --user alice
-    """
-    body = {"platform": platform, "contest_id": str(cid)}
-    if user: body["user"] = user
-    if slug: body["slug"] = slug
-
-    click.echo(f"抓取 {platform}/contest/{cid}...")
-    preview = call_api("POST", "/import/update-preview", json=body)
-
-    # 显示预览
     _show_update_preview(preview)
 
     if dry_run:
         click.echo("(dry-run, 不写)")
         return
 
-    if not yes:
-        if not confirm("确认提交?", default_no=True):
-            click.echo("已取消")
-            return
+    if not yes and not confirm("确认提交?", default_no=True):
+        click.echo("已取消")
+        return
 
-    # apply
-    apply_body = {
-        "platform": platform,
-        "preview": preview,
-        "overrides": {},
-        "options": {"create_body": True, "run_sync": True, "push": True},
-    }
-    result = call_api("POST", "/import/update-apply", json=apply_body)
-    click.echo(f"✓ {result['slug']} ({result['record_state']})")
-    if result.get("commit_sha"):
-        click.echo(f"  commit: {result['commit_sha']} (pushed={result['pushed']})")
-    click.echo(f"  body: {result.get('body_written', '(none)')}")
+    result = apply_update(
+        preview=preview, csv_store=app.csv, md_store=app.md,
+        git_ops=app.git, create_body=True, run_sync=True, push=True,
+    )
+    click.echo(f"✓ {result.slug} ({result.record_state})")
+    if result.commit_sha:
+        click.echo(f"  commit: {result.commit_sha} (pushed={result.pushed})")
+    if result.body_written:
+        click.echo(f"  body: {result.body_written}")
 
 
 @cli.command()
@@ -238,62 +500,66 @@ def update(cid, platform, user, yes, dry_run, slug):
 @click.option("--user", default=None)
 @click.option("--yes", "-y", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-@click.option("--since", default=None, help="ISO 时间, 不传则用 contest.end_time")
+@click.option("--since", default=None)
 def upsolve(cid_or_slug, platform, user, yes, dry_run, since):
-    """检测赛后补题, 更新 contests.csv.
+    """检测赛后补题, 更新 contests.csv."""
+    user = get_user(user, platform)
 
-    CID_OR_SLUG 可以是 contest_id (会先 fetch meta 找 slug) 或直接 slug.
-    """
-    body = {"platform": platform}
-    # 判断是 cid 还是 slug
     if cid_or_slug.isdigit():
-        body["contest_id"] = cid_or_slug
+        contest_id, slug = cid_or_slug, None
     else:
-        body["slug"] = cid_or_slug
-    if user: body["user"] = user
-    if since: body["since"] = since
+        contest_id, slug = None, cid_or_slug
 
-    click.echo(f"检查补题 ({platform}: {cid_or_slug})...")
-    preview = call_api("POST", "/import/upsolve-preview", json=body)
+    try:
+        preview = build_upsolve_preview(
+            platform=platform, contest_id=contest_id, slug=slug, user=user,
+            csv_store=app.csv, config_dir=app.config_dir,
+            since_override=since,
+        )
+    except ValueError as e:
+        msg = str(e)
+        if "slug_not_found_in_csv" in msg:
+            click.echo(f"✗ slug 在 CSV 里找不到, 先跑 wiki update <cid>", err=True)
+        else:
+            click.echo(f"✗ {msg}", err=True)
+        sys.exit(1)
 
-    click.echo(f"slug: {preview['slug']}")
-    click.echo(f"当前: {''.join(preview['current_problems'])}")
-    if not preview["changes"]:
+    click.echo(f"slug: {preview.slug}")
+    click.echo(f"当前: {''.join(preview.current_problems)}")
+    if not preview.changes:
         click.echo("(无变化)")
         return
 
-    click.echo(f"\n检测到 {len(preview['changes'])} 题变化:")
-    for ch in preview["changes"]:
+    click.echo(f"\n检测到 {len(preview.changes)} 题变化:")
+    for ch in preview.changes:
         click.echo(f"  {ch['letter']} {ch['before']} -> {ch['after']} ({ch['verdict']}, {ch.get('submitted_at', '?')})")
 
     if dry_run:
         click.echo("(dry-run, 不写)")
         return
 
-    if not yes:
-        if not confirm("确认更新?", default_no=True):
-            click.echo("已取消")
-            return
+    if not yes and not confirm("确认更新?", default_no=True):
+        click.echo("已取消")
+        return
 
-    result = call_api("POST", "/import/upsolve-apply", json={
-        "platform": platform, "preview": preview,
-        "options": {"push": True},
-    })
-    click.echo(f"✓ 更新 {result['slug']}")
-    if result.get("commit_sha"):
-        click.echo(f"  commit: {result['commit_sha']}")
+    result = apply_upsolve(
+        preview=preview, csv_store=app.csv, md_store=app.md,
+        git_ops=app.git, push=True,
+    )
+    click.echo(f"✓ {result.slug}")
+    if result.commit_sha:
+        click.echo(f"  commit: {result.commit_sha}")
 
 
-def _show_update_preview(preview: dict) -> None:
-    """显示 update-preview 给人看."""
-    c = preview["contest"]
-    click.echo(f"\n=== {'CREATE NEW' if preview['record_state']=='create_new' else 'UPDATE EXISTING'} ===")
+def _show_update_preview(preview) -> None:
+    c = preview.contest
+    click.echo(f"\n=== {'CREATE NEW' if preview.record_state=='create_new' else 'UPDATE EXISTING'} ===")
     click.echo(f"比赛: {c['title']} ({c['problem_count']} 题)")
-    click.echo(f"slug: {preview['slug']} {'(已存在)' if preview['slug_exists'] else ''}")
-    click.echo(f"date: {preview['suggested'].get('date', '?')}")
-    click.echo(f"link: {preview['suggested'].get('link', '')}")
+    click.echo(f"slug: {preview.slug} {'(已存在)' if preview.slug_exists else ''}")
+    click.echo(f"date: {preview.suggested.get('date', '?')}")
+    click.echo(f"link: {preview.suggested.get('link', '')}")
     click.echo()
-    for p in preview["problems"]:
+    for p in preview.problems:
         if p["status"] == "O":
             mark = click.style("O", fg="green")
         elif p["status"] == "Ø":
@@ -308,15 +574,115 @@ def _show_update_preview(preview: dict) -> None:
         elif p.get("no_submission"):
             extra = "  (未提交)"
         click.echo(f"  {p['letter']} {mark}{extra}")
-    s = preview["summary"]
+    s = preview.summary
     click.echo(f"\n汇总: O×{s['O']}, !×{s['!']}, .×{s['.']}")
+
+
+# === codes (抓代码) ===
+
+@cli.command()
+@click.argument("cid")
+@click.option("--platform", default="qoj")
+@click.option("--user", default=None)
+@click.option("--only-mine", is_flag=True)
+@click.option("--only-watchlist", is_flag=True)
+@click.option("--no-watchlist", is_flag=True)
+@click.option("--sample", "sample_n", default=1, type=int)
+@click.option("--problem", multiple=True)
+@click.option("--status", default="AC")
+@click.option("--refresh", is_flag=True)
+@click.option("--yes", "-y", is_flag=True)
+def codes(cid, platform, user, only_mine, only_watchlist, no_watchlist,
+          sample_n, problem, status, refresh, yes):
+    """抓代码. 默认: 自己 + watchlist + 每题最快 1 个 AC."""
+    user = get_user(user, platform)
+
+    req = FetchRequest(
+        platform=platform, cid=str(cid), username=user,
+        fetch_self=not only_watchlist,
+        fetch_watchlist=not (only_mine or no_watchlist),
+        fetch_others="none" if only_mine else (
+            "none" if only_watchlist else "top_n_fastest"),
+        others_n=sample_n,
+        problems=list(problem) if problem else None,
+        skip_existing=not refresh,
+        request_interval=1.5,
+    )
+
+    client_factory = lambda p: make_client(p, app.config_dir)
+    progress = {"fetched": 0, "total": 0}
+
+    def on_progress(p):
+        progress.update(p)
+
+    click.echo(f"抓取 {platform}/contest/{cid} (用户 {user})...")
+
+    try:
+        result = fetch_codes(req, client_factory, app.codes_store,
+                            app.watchlist_obj, progress_callback=on_progress)
+    except Exception as e:
+        click.echo(f"✗ {type(e).__name__}: {e}", err=True)
+        sys.exit(1)
+
+    click.echo(f"\n完成: 抓 {result.fetched}, 跳过 {result.skipped_existing}, "
+              f"错误 {result.errors} ({result.duration_seconds:.1f}s)")
+    # by source
+    by_src = {}
+    for f in result.files:
+        by_src.setdefault(f["source"], 0)
+        by_src[f["source"]] += 1
+    for src, n in sorted(by_src.items()):
+        click.echo(f"  [{src}] {n} 份")
+
+
+@cli.command("codes-list")
+@click.argument("cid")
+@click.option("--problem", multiple=True)
+@click.option("--user", multiple=True)
+@click.option("--source", type=click.Choice(["mine", "watchlist", "sample", "other"]))
+def codes_list(cid, problem, user, source):
+    """列出已抓的代码."""
+    files = app.codes_store.list_files(
+        str(cid), problem=list(problem) or None, user=list(user) or None,
+        source=source,
+    )
+    if not files:
+        click.echo("(空)")
+        return
+    # 按题号 + user 分组
+    from collections import defaultdict
+    by_prob = defaultdict(list)
+    for f in files:
+        by_prob[f.problem].append(f)
+    for prob in sorted(by_prob.keys()):
+        click.echo(f"\n{prob} 题 ({len(by_prob[prob])} 份):")
+        for f in sorted(by_prob[prob], key=lambda x: x.user):
+            click.echo(f"  [{f.source:9}] {f.user:15} {f.problem}.{_ext(f.path)} "
+                      f"({f.size}B)")
+
+
+@cli.command("codes-show")
+@click.argument("cid")
+@click.argument("user")
+@click.argument("problem")
+def codes_show(cid, user, problem):
+    """显示某份代码."""
+    code = app.codes_store.read(str(cid), user, problem)
+    if code is None:
+        click.echo(f"✗ 没找到 {cid}/{user}/{problem}", err=True)
+        sys.exit(1)
+    pager = os.environ.get("PAGER", "less")
+    subprocess.run([pager], input=code, text=True)
+
+
+def _ext(path_str: str) -> str:
+    return Path(path_str).suffix.lstrip(".")
 
 
 # === cookies ===
 
 @cli.group()
 def cookies():
-    """管理 OJ cookie."""
     pass
 
 
@@ -324,34 +690,101 @@ def cookies():
 @click.argument("file", type=click.Path(exists=True))
 @click.option("--platform", default="qoj")
 def cookies_import(file, platform):
-    """导入 Netscape cookie jar 文件."""
-    with open(file, "rb") as f:
-        files = {"file": (Path(file).name, f, "text/plain")}
-        data = {"platform": platform}
-        r = get_client().post("/import/cookies/import", files=files, data=data)
-        if r.status_code >= 400:
-            click.echo(f"✗ {r.json().get('error', {}).get('message', r.text)}", err=True)
-            sys.exit(1)
-        result = r.json()
-        click.echo(f"✓ 导入 {result.get('cookies_loaded', '?')} 个 cookie")
+    """导入 Netscape cookie jar."""
+    import shutil
+    target = app.config_dir / "cookies" / f"{platform}.txt"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(file, target)
+    target.chmod(0o600)
+    click.echo(f"✓ 已导入 → {target}")
 
 
 @cookies.command("status")
 @click.option("--platform", default="qoj")
 def cookies_status(platform):
     """看 cookie 状态."""
-    data = call_api("GET", "/import/cookies/status",
-                    params={"platform": platform})
-    if not data.get("cookies_loaded"):
-        click.echo(f"✗ {platform} 没 cookie 配置")
+    p = app.config_dir / "cookies" / f"{platform}.txt"
+    if not p.exists():
+        click.echo(f"✗ {platform} 没 cookie 配置 (跑: wiki cookies import <file>)")
         return
-    age = data.get("age_days", "?")
-    click.echo(f"✓ {platform}: {data['cookies_loaded']} cookies, 上次成功 {age} 天前")
-    if data.get("warning"):
-        click.echo(f"  ⚠ {data['warning']}")
+    age = "? 天"
+    click.echo(f"✓ {platform}: {p} ({p.stat().st_size} bytes)")
 
 
-# === entry ===
+# === watchlist ===
+
+@cli.group()
+def watchlist():
+    pass
+
+
+@watchlist.command("list")
+def watchlist_list():
+    """看当前名单."""
+    users = app.watchlist_obj.users()
+    if not users:
+        click.echo("(空)")
+    for u in users:
+        click.echo(u)
+
+
+@watchlist.command("add")
+@click.argument("users", nargs=-1)
+def watchlist_add(users):
+    """加用户."""
+    added = app.watchlist_obj.add(list(users))
+    for u in added:
+        click.echo(f"+ {u}")
+
+
+@watchlist.command("remove")
+@click.argument("users", nargs=-1)
+@click.option("--all", "rm_all", is_flag=True)
+def watchlist_remove(users, rm_all):
+    """删用户."""
+    if rm_all:
+        users = app.watchlist_obj.users()
+    removed = app.watchlist_obj.remove(list(users))
+    for u in removed:
+        click.echo(f"- {u}")
+
+
+# === sync ===
+
+@cli.command()
+def sync():
+    """跑 tools/sync.py (重新生成 docs/index.md + data/contests.json)."""
+    _run_sync()
+    click.echo("✓ sync.py 完成")
+
+
+def _run_sync():
+    sync_py = Path(__file__).resolve().parent / "sync.py"
+    if not sync_py.exists():
+        return
+    subprocess.run(
+        [sys.executable, str(sync_py)],
+        cwd=str(app.repo_path),
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+
+
+# === serve (mkdocs preview, 不是后端) ===
+
+@cli.command()
+@click.option("--host", default="127.0.0.1")
+@click.option("--port", default=8000, type=int)
+def serve(host, port):
+    """跑 mkdocs preview (前端静态页)."""
+    venv_py = Path(__file__).resolve().parent.parent / ".venv" / "bin" / "mkdocs"
+    if not venv_py.exists():
+        click.echo(f"✗ 找不到 {venv_py}, 跑 ./bootstrap.sh 装 venv", err=True)
+        sys.exit(1)
+    subprocess.run([str(venv_py), "serve", "-a", f"{host}:{port}"],
+                   cwd=str(app.repo_path))
+
 
 if __name__ == "__main__":
     cli(obj={})

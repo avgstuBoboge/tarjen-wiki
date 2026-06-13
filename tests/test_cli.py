@@ -1,34 +1,30 @@
 """
 tests/test_cli.py
 
-CLI 单元测试. 用 subprocess + 一个 in-process server fixture.
+CLI 测试 (用 click.testing.CliRunner, 不启动 server).
+
+直接 import cli_main, 用 CliRunner.invoke 调命令.
 """
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
-import threading
-import time
 import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-VENV_PY = REPO_ROOT / ".venv" / "bin" / "python"
 
 
-def make_env() -> dict:
+def setup_env() -> dict:
+    """建临时 git repo + config 目录."""
     tmp = tempfile.mkdtemp()
     tmp_path = Path(tmp)
     repo = tmp_path / "repo"
-    remote = tmp_path / "remote.git"
     repo.mkdir()
-    remote.mkdir()
-
-    subprocess.run(["git", "init", "--bare", str(remote)], check=True,
-                   capture_output=True)
     subprocess.run(["git", "init", "-b", "main", str(repo)], check=True,
                    capture_output=True)
     subprocess.run(["git", "-C", str(repo), "config", "user.email", "t@t.com"],
@@ -40,135 +36,127 @@ def make_env() -> dict:
     )
     (repo / "docs").mkdir()
     (repo / "docs" / "contests").mkdir()
-    (repo / "tools").mkdir()
     subprocess.run(["git", "-C", str(repo), "add", "."], check=True,
                    capture_output=True)
     subprocess.run(["git", "-C", str(repo), "commit", "-m", "init"],
                    check=True, capture_output=True)
-    subprocess.run(["git", "-C", str(repo), "remote", "add", "origin", str(remote)],
-                   check=True, capture_output=True)
-    subprocess.run(["git", "-C", str(repo), "push", "-u", "origin", "main"],
-                   check=True, capture_output=True)
 
     cfg = tmp_path / "cfg"
     (cfg / "cookies").mkdir(parents=True)
-    (cfg / "cookies" / "qoj.txt").write_text(
-        ".qoj.ac\tTRUE\t/\tFALSE\t0\tuoj_remember_token\tT\n"
-        ".qoj.ac\tTRUE\t/\tFALSE\t0\tuoj_remember_token_checksum\tC\n"
-        ".qoj.ac\tTRUE\t/\tFALSE\t0\tUOJSESSID\tS\n",
-        encoding="utf-8",
-    )
+    cfg.joinpath("config.json").write_text(json.dumps({
+        "default_user": {"qoj": "tarjen"}
+    }))
 
     return {"tmp_root": Path(tmp), "repo": repo, "cfg": cfg}
 
 
-class CLITestCase(unittest.TestCase):
-    """每个测试独立环境, 启动一个 in-process server."""
+class CLITestBase(unittest.TestCase):
+    """每次 setUp 建独立环境."""
 
-    @classmethod
-    def setUpClass(cls):
-        cls.env = make_env()
-        # 设置环境变量
-        for k in ["REPO_PATH", "CONFIG_DIR", "CODES_DIR"]:
-            os.environ.pop(k, None)
-        os.environ["REPO_PATH"] = str(cls.env["repo"])
-        os.environ["CONFIG_DIR"] = str(cls.env["cfg"])
-        os.environ["CODES_DIR"] = str(cls.env["tmp_root"] / "codes")
+    def setUp(self):
+        self.env = setup_env()
+        os.environ["REPO_PATH"] = str(self.env["repo"])
+        os.environ["CONFIG_DIR"] = str(self.env["cfg"])
+        os.environ["CODES_DIR"] = str(self.env["tmp_root"] / "codes")
 
-        # 启动 server 在后台线程
-        import uvicorn
+        # 让 cli_main 能 import 各模块
         sys.path.insert(0, str(REPO_ROOT / "tools"))
-        # 重置 server 全局 state (防止前一个测试残留)
-        import server
-        server.state = server.AppState()
 
-        config = uvicorn.Config(server.app, host="127.0.0.1", port=18901,
-                               log_level="warning")
-        cls.server = uvicorn.Server(config)
-        cls.server_thread = threading.Thread(target=cls.server.run, daemon=True)
-        cls.server_thread.start()
+        # 必须在导入 cli_main 之前设环境变量
+        from click.testing import CliRunner
+        self.runner = CliRunner()
 
-        # 等 server 起来
-        import httpx
-        for _ in range(50):
-            try:
-                r = httpx.get("http://127.0.0.1:18901/healthz", timeout=0.5)
-                if r.status_code == 200:
-                    break
-            except Exception:
-                time.sleep(0.1)
+        # import 后初始化 app state
+        import cli_main
+        cli_main.app.init()
 
-        cls.api_base = "http://127.0.0.1:18901"
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.server.should_exit = True
-        cls.server_thread.join(timeout=5)
+    def tearDown(self):
         for k in ["REPO_PATH", "CONFIG_DIR", "CODES_DIR"]:
             os.environ.pop(k, None)
-        shutil.rmtree(cls.env["tmp_root"], ignore_errors=True)
+        shutil.rmtree(self.env["tmp_root"], ignore_errors=True)
 
-    def run_cli(self, *args, env_overrides=None, input=None):
-        """调 CLI 子进程. 返回 (exit_code, stdout, stderr)."""
-        env = os.environ.copy()
-        env["REPO_PATH"] = str(self.env["repo"])
-        env["CONFIG_DIR"] = str(self.env["cfg"])
-        env["CODES_DIR"] = str(self.env["tmp_root"] / "codes")
-        env["WIKI_API"] = self.api_base
-        if env_overrides:
-            env.update(env_overrides)
-
-        return subprocess.run(
-            [str(VENV_PY), "-m", "tools.cli_main", *args],
-            cwd=str(REPO_ROOT),
-            env=env,
-            capture_output=True,
-            text=True,
-            input=input,
-            timeout=30,
-        )
+    def invoke(self, *args, **kwargs):
+        from cli_main import cli
+        return self.runner.invoke(cli, list(args), **kwargs)
 
 
-# === Basic commands ===
+class TestCLIBasic(CLITestBase):
+    def test_help(self):
+        r = self.invoke("--help")
+        self.assertEqual(r.exit_code, 0)
+        self.assertIn("doctor", r.output)
+        self.assertIn("list", r.output)
+        self.assertIn("update", r.output)
 
-class TestCLIBasic(CLITestCase):
     def test_doctor(self):
-        r = self.run_cli("doctor")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("后端在跑", r.stdout)
+        r = self.invoke("doctor")
+        self.assertEqual(r.exit_code, 0, r.output)
+        self.assertIn("数据 store 加载完成", r.output)
+        self.assertIn("比赛: 0", r.output)
 
     def test_list_empty(self):
-        r = self.run_cli("list")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("共 0 场", r.stdout)
+        r = self.invoke("list")
+        self.assertEqual(r.exit_code, 0, r.output)
+        self.assertIn("共 0 场", r.output)
 
     def test_show_nonexistent(self):
-        r = self.run_cli("show", "nonexistent")
-        self.assertNotEqual(r.returncode, 0)
-        self.assertIn("✗", r.stderr)
+        r = self.invoke("show", "nonexistent")
+        self.assertNotEqual(r.exit_code, 0)
+        self.assertIn("slug 不存在", r.output)
 
 
-# === Cookie command ===
+class TestCRUD(CLITestBase):
+    def test_add_and_show(self):
+        r = self.invoke("add",
+                       "--slug", "2025-test",
+                       "--name", "Test Contest",
+                       "--date", "2025.6.12",
+                       "--total", "3",
+                       "--problems", "O;O;.",
+                       "--tags", "#test",
+                       "-y")
+        self.assertEqual(r.exit_code, 0, r.output)
 
-class TestCLICookies(CLITestCase):
-    def test_status(self):
-        # /import/cookies/status 是 Phase 3.4, 现在不实现; 只测 CLI 不 crash
-        r = self.run_cli("cookies", "status")
-        # 接受: exit 0 (有 cookie) 或 exit 1 (没实现端点)
-        self.assertIn(r.returncode, (0, 1))
+        r = self.invoke("show", "2025-test")
+        self.assertEqual(r.exit_code, 0, r.output)
+        self.assertIn("2025-test", r.output)
+        self.assertIn("O;O;.", r.output)
+
+    def test_set_status(self):
+        # 先加
+        self.invoke("add",
+                    "--slug", "x", "--name", "X", "--date", "2025.1.1",
+                    "--total", "3", "--problems", ".;.;.", "-y")
+        # 再改
+        r = self.invoke("set", "x",
+                       "--status", "A=O",
+                       "--status", "B=Ø",
+                       "-y")
+        self.assertEqual(r.exit_code, 0, r.output)
+
+        r = self.invoke("show", "x")
+        self.assertIn("O;Ø;.", r.output)
+
+    def test_rm(self):
+        self.invoke("add",
+                    "--slug", "x", "--name", "X", "--date", "2025.1.1",
+                    "--total", "1", "--problems", ".", "-y")
+        r = self.invoke("rm", "x", "-y")
+        self.assertEqual(r.exit_code, 0, r.output)
+        r = self.invoke("show", "x")
+        self.assertNotEqual(r.exit_code, 0)
 
 
-# === Update / upsolve (mocked fetch via test endpoint?) ===
-
-class TestCLIRequiresConfirmation(CLITestCase):
-    """update 默认需要 Y/n 确认."""
-
-    def test_update_no_confirm_aborts(self):
-        # 没有 mock fetch, 实际会 fetch qoj.ac 然后失败
-        # 我们只验证: 不加 --yes 时即使填了 y, 也没法走通完整流程
-        # 这里只 smoke test "update --dry-run" 这种不需要 fetch 的不会 hang
-        r = self.run_cli("list")
-        self.assertEqual(r.returncode, 0)
+class TestUpdateDryRun(CLITestBase):
+    def test_update_no_cookie(self):
+        # 没有 QOJ cookie, update 应该报清晰错误
+        r = self.invoke("update", "2564", "--dry-run")
+        # 没 cookie: exit 1, 错误信息
+        self.assertNotEqual(r.exit_code, 0)
+        # 错误信息可能来自 QOJ client (连不通), 但不是 cookie 检查
+        # 因为我们没 cookie 文件
+        # 实际上我们设了 config.json 但没 cookie 文件, 会先报 cookie 错
+        self.assertIn("cookie", r.output.lower() if hasattr(r, 'output') else "")
 
 
 if __name__ == "__main__":

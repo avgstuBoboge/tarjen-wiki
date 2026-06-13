@@ -82,13 +82,15 @@ class GitOps:
         # ahead/behind (相对 upstream)
         ahead, behind = 0, 0
         upstream = f"{self.remote}/{branch}"
-        try:
-            r = self._run("rev-list", "--left-right", "--count", f"{upstream}...{branch}")
-            left, right = r.stdout.strip().split()
-            behind, ahead = int(left), int(right)
-        except GitError:
-            # 没设 upstream, 不报错
-            pass
+        # check=False: 没有 upstream 时 rev-list 退出 128, 不报错
+        r = self._run("rev-list", "--left-right", "--count",
+                     f"{upstream}...{branch}", check=False)
+        if r.returncode == 0:
+            try:
+                left, right = r.stdout.strip().split()
+                behind, ahead = int(left), int(right)
+            except (ValueError, AttributeError):
+                pass
 
         # 工作区状态
         s = self._run("status", "--porcelain").stdout
@@ -217,8 +219,8 @@ class GitOps:
         pushed = True
         try:
             self.push()
-        except GitError as e:
-            # commit 成功但 push 失败, 报告但不回滚
+        except (GitError, subprocess.CalledProcessError) as e:
+            # commit 成功但 push 失败, 让调用方决定怎么处理
             pushed = False
             raise GitPushError(f"commit {sha[:8]} 成功但 push 失败: {e}") from e
         return (sha, pushed)
