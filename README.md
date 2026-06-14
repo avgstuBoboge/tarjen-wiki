@@ -63,9 +63,11 @@ mkdocs gh-deploy
 ├── config.json                        # { "default_user": {"qoj": "tarjen"} }
 └── watchlist.txt
 
-~/.local/share/wiki/codes/             # 不在 repo (gitignore 之外)
+codes/                                # gitignored (在 repo 内, 默认位置)
 └── <platform>/<cid>/<problem>/<user>.<ext>
-    e.g. ~/.local/share/wiki/codes/qoj/2521/A/tarjen.cpp
+    e.g. codes/qoj/2521/A/tarjen.cpp
+
+# 想要放外面, 设: export CODES_DIR=~/.local/share/wiki/codes
 ```
 
 ## 图例
@@ -91,7 +93,7 @@ macOS / Linux / Windows (Git Bash / cmd / PowerShell) 全平台. Python 3.9+.
 
 - **零网络服务**: 没有 HTTP server, 没有数据库
 - **唯一数据源**: contests.csv 是 ground truth, git 是 history
-- **不上传代码 / cookie**: 全在 `~/.local/share/wiki/`, 不在 repo
+- **不上传代码 / cookie**: 代码在 `codes/` (gitignored), cookie 在 `~/.config/wiki/`
 - **抓取失败不静默**: 错误详情打到 stderr
 
 ## 仓库结构
@@ -115,6 +117,7 @@ macOS / Linux / Windows (Git Bash / cmd / PowerShell) 全平台. Python 3.9+.
 │   │   └── qoj.py          # QOJ 实现 (cloudscraper 绕 CF)
 │   └── API.md
 ├── tests/                  # 单元测试 (335 tests)
+├── codes/                  # gitignored 代码缓存
 ├── contests.csv            # 唯一数据源
 ├── mkdocs.yml
 ├── requirements.txt

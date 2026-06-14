@@ -43,7 +43,8 @@ wiki upsolve <cid> [--user NAME] [--since ISO] [--dry-run] [-y]
 ```bash
 wiki codes <cid> [--only-mine] [--only-watchlist] [--no-watchlist] \
               [--sample N] [--problem A,B] [--refresh] [-y]
-# 缓存: ~/.local/share/wiki/codes/<platform>/<cid>/<problem>/<user>.<ext>
+# 缓存: <repo>/codes/<platform>/<cid>/<problem>/<user>.<ext> (gitignored)
+# 想放外面: export CODES_DIR=~/.local/share/wiki/codes
 
 wiki codes-list <cid> [--platform X] [--problem A] [--user X] \
                   [--source mine|watchlist|sample|other] [--limit N]
@@ -126,7 +127,7 @@ result = fetch_codes(req, platform_client_factory, codes_store, watchlist)
 
 ### `codes_store.CodesStore` — 本地代码缓存
 ```python
-store = CodesStore(Path("~/.local/share/wiki/codes").expanduser())
+store = CodesStore(Path("codes").expanduser())   # 默认 <repo>/codes/ (gitignored)
 store.save(platform="qoj", cid=2521, problem="A", user="alice",
            code="#include...", language="GNU C++17", submission_id=12345,
            source="mine", contest_time="1:23")
@@ -193,5 +194,5 @@ class PlatformClient(ABC):
 |------|------|------|
 | `REPO_PATH` | `cwd` | wiki git 仓库 |
 | `CONFIG_DIR` | `~/.config/wiki` | cookie / config / watchlist |
-| `CODES_DIR` | `~/.local/share/wiki/codes` | 代码缓存 |
+| `CODES_DIR` | `<repo>/codes` | 代码缓存 (gitignored) |
 | `EDITOR` | `vi` | `wiki edit` |

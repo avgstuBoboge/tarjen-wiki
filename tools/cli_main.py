@@ -74,7 +74,8 @@ def codes_dir() -> Path:
     p = os.environ.get("CODES_DIR", "").strip()
     if p:
         return Path(p).expanduser()
-    return Path.home() / ".local" / "share" / "wiki" / "codes"
+    # 默认在 repo 根 codes/ (已 .gitignore). 想放外面用 CODES_DIR 环境变量
+    return repo_path() / "codes"
 
 
 # === 共享 state (per-process) ===
