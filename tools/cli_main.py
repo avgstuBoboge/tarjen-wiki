@@ -16,7 +16,7 @@ tools/cli_main.py — Wiki CLI
   wiki set <slug> --status A=O B=Ø    # 改字段
   wiki rm <slug>
   wiki edit <slug>                    # $EDITOR 改 md 详情页
-  wiki codes <cid> [--only-mine] [--sample N] [-y]   # 抓代码
+  wiki codes <cid> [--oj X] [--problem A] [--samples N] [-y]   # 抓代码
   wiki cookies status | import <file>
   wiki watchlist list | add X | remove X
   wiki serve                          # 可选: 跑 mkdocs preview
@@ -724,19 +724,41 @@ def _show_update_preview(preview) -> None:
 
 @cli.command()
 @click.argument("cid")
-@click.option("--platform", default="qoj")
+@click.option("--oj", "platform", default="qoj",
+              help="OJ 平台 (默认 qoj). 例: qoj, codeforces, atcoder.")
+@click.option("--platform", "platform_legacy", default=None,
+              help="[已废弃] 同 --oj. 用了会 stderr warning.")
 @click.option("--user", default=None)
 @click.option("--only-mine", is_flag=True)
 @click.option("--only-watchlist", is_flag=True)
 @click.option("--no-watchlist", is_flag=True)
-@click.option("--sample", "sample_n", default=1, type=int)
+@click.option("--samples", "samples", default=5, type=int,
+              help="每题 watchlist+others 池上限 (默认 5). mine 永远全抓.")
+@click.option("--sample", "sample_legacy", default=None, type=int,
+              help="[已废弃] 同 --samples (单数).")
 @click.option("--problem", multiple=True)
 @click.option("--status", default="AC")
 @click.option("--refresh", is_flag=True)
 @click.option("--yes", "-y", is_flag=True)
-def codes(cid, platform, user, only_mine, only_watchlist, no_watchlist,
-          sample_n, problem, status, refresh, yes):
-    """抓代码. 默认: 自己 + watchlist + 每题最快 1 个 AC."""
+def codes(cid, platform, platform_legacy, user, only_mine, only_watchlist,
+          no_watchlist, samples, sample_legacy, problem, status, refresh, yes):
+    """抓代码. 默认: 自己全抓(含 WA) + watchlist AC + 每题最多 5 个 sample (watchlist 优先).
+
+    例:
+      wiki codes 2521                  # 全部 + watchlist + 5 samples/题
+      wiki codes 2521 --problem A      # 只抓 A 题 (单 problem)
+      wiki codes 2521 --only-mine      # 只抓自己的 (含 WA)
+      wiki codes 2521 --samples 10     # 每题 watchlist+others 共 10
+      wiki codes 2521 --oj codeforces  # (未来) 换 OJ
+    """
+    # deprecation 兼容
+    if platform_legacy is not None:
+        click.echo("⚠ --platform 已废弃, 改用 --oj", err=True)
+        platform = platform_legacy
+    if sample_legacy is not None:
+        click.echo("⚠ --sample 已废弃, 改用 --samples", err=True)
+        samples = sample_legacy
+
     user = get_user(user, platform)
 
     req = FetchRequest(
@@ -745,7 +767,7 @@ def codes(cid, platform, user, only_mine, only_watchlist, no_watchlist,
         fetch_watchlist=not (only_mine or no_watchlist),
         fetch_others="none" if only_mine else (
             "none" if only_watchlist else "top_n_fastest"),
-        others_n=sample_n,
+        samples_per_problem=samples,
         problems=list(problem) if problem else None,
         skip_existing=not refresh,
         request_interval=1.5,

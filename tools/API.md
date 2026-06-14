@@ -41,8 +41,12 @@ wiki upsolve <cid> [--user NAME] [--since ISO] [--dry-run] [-y]
 
 ### 代码抓取
 ```bash
-wiki codes <cid> [--only-mine] [--only-watchlist] [--no-watchlist] \
-              [--sample N] [--problem A,B] [--refresh] [-y]
+wiki codes <cid> [--oj PLATFORM] [--user X] \
+              [--only-mine | --only-watchlist | --no-watchlist] \
+              [--samples N] [--problem A] [--refresh] [-y]
+# 默认: 自己全抓(含 WA 复盘) + watchlist AC + 每题最多 5 个 sample (watchlist 优先)
+# 单 problem: --problem A
+# 旧 flag (已废弃, 用 stderr warning): --platform, --sample
 # 缓存: <repo>/codes/<platform>/<cid>/<problem>/<user>.<ext> (gitignored)
 # 想放外面: export CODES_DIR=~/.local/share/wiki/codes
 
@@ -117,12 +121,18 @@ result = apply_update(preview=preview, csv_store=csv, md_store=md, git_ops=git,
 ### `codes_logic` — 代码抓取
 ```python
 from codes_logic import FetchRequest, fetch_codes
-req = FetchRequest(platform="qoj", cid="2521", username="tarjen",
-                  fetch_self=True, fetch_watchlist=True,
-                  fetch_others="top_n_fastest", others_n=1,
-                  skip_existing=True, request_interval=1.5)
+req = FetchRequest(
+    platform="qoj",        # = --oj (默认 qoj)
+    cid="2521", username="tarjen",
+    fetch_self=True, fetch_watchlist=True,
+    fetch_others="top_n_fastest",
+    samples_per_problem=5, # 每题 watchlist+others 池上限 (默认 5)
+    skip_existing=True, request_interval=1.5,
+    # 旧字段 others_n 已废弃, 仍可传 (DeprecationWarning, 转发到 samples_per_problem)
+)
 result = fetch_codes(req, platform_client_factory, codes_store, watchlist)
 # result.fetched / skipped_existing / errors / files / error_details
+# 抓取策略: 自己全抓 (含 WA) + watchlist AC + 每题 watchlist 优先补到 samples_per_problem.
 ```
 
 ### `codes_store.CodesStore` — 本地代码缓存
@@ -171,6 +181,15 @@ class PlatformClient(ABC):
     def get_all_user_standings(self, contest_id: str, exclude_users: set[str] | None = None) -> dict[str, list[FastestACEntry]]: ...
     @abstractmethod
     def get_submission_code(self, submission_id: str) -> tuple[str, str]: ...
+    @abstractmethod
+    def get_problem_letters(self, contest_id: str) -> list[str]: ...   # 题目列表
+
+    # URL 助手 (concrete) — 子类覆盖 BASE_URL + URL_TEMPLATES 即可:
+    client.contest_url("2521")                # "https://qoj.ac/contest/2521"
+    client.standings_url("2521")              # "...standings"
+    client.problem_url("2521", "A")           # "...problem/A"
+    client.submission_url("12345")            # ".../submission/12345"
+    client.parse_problem_ref(raw, "2521")     # OJ-native problem 引用 → canonical letter
 ```
 
 ---

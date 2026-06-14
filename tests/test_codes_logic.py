@@ -65,14 +65,20 @@ MOCK_SUBMISSIONS = [
 CODE_BODY = "// fake code for {user}/{problem}"
 
 
-def make_factory():
-    """构造返回 mock QojClient 的 factory. 覆盖 standings/submissions/code."""
+def make_factory(extra_subs=None):
+    """构造返回 mock QojClient 的 factory. 覆盖 standings/submissions/code.
+
+    extra_subs: 额外的 Submission 列表 (跟 MOCK_SUBMISSIONS 合并), 用于新测试
+    临时加新 user 进 mock 而不影响模块级 MOCK_SUBMISSIONS.
+    """
     from platforms.base import FastestACEntry, StandingsEntry
 
+    all_subs = list(MOCK_SUBMISSIONS) + list(extra_subs or [])
+
     def _standings_for(user):
-        """从 MOCK_SUBMISSIONS 算 user 的 standings dict."""
+        """从 all_subs 算 user 的 standings dict."""
         result = {}
-        for s in MOCK_SUBMISSIONS:
+        for s in all_subs:
             if s.user != user:
                 continue
             verdict = "AC" if s.verdict == "AC" else "WA"
@@ -90,9 +96,9 @@ def make_factory():
         return result
 
     def _all_standings(exclude_users):
-        """从 MOCK_SUBMISSIONS 算所有用户每题 AC (按时间排)."""
+        """从 all_subs 算所有用户每题 AC (按时间排)."""
         per_prob: dict[str, list[FastestACEntry]] = {}
-        for s in MOCK_SUBMISSIONS:
+        for s in all_subs:
             if s.user in exclude_users:
                 continue
             if s.verdict != "AC":
@@ -113,15 +119,18 @@ def make_factory():
         def fetch_fn(url, cookie):
             if "/submission/" in url:
                 sid = url.rstrip("/").split("/")[-1]
-                for s in MOCK_SUBMISSIONS:
+                for s in all_subs:
                     if s.submission_id == sid:
                         return f'<pre><code class="sh_cpp">{CODE_BODY.format(user=s.user, problem=s.problem)}</code></pre><div>Language: {s.language or "GNU C++17"}</div>'
                 raise Exception(f"unknown sid {sid}")
             return "<html></html>"
         client._fetch_fn = fetch_fn
-        # 覆盖 standings API: 从 MOCK_SUBMISSIONS 算
+        # 覆盖 standings API: 从 all_subs 算
         client.get_user_standings = lambda cid, user: _standings_for(user)
         client.get_all_user_standings = lambda cid, exclude_users=None: _all_standings(exclude_users or set())
+        # 覆盖 problem_letters: 从 all_subs 里的 problem 字段去重排序
+        letters = sorted({s.problem for s in all_subs})
+        client.get_problem_letters = lambda cid: list(letters)
         return client
     return factory
 
@@ -191,11 +200,12 @@ class TestFetchBasic(unittest.TestCase):
 
     def test_no_watchlist(self):
         req = FetchRequest(platform="qoj", cid="2564", username="tarjen",
-                          fetch_watchlist=False, request_interval=0)
+                          fetch_watchlist=False, samples_per_problem=1,
+                          request_interval=0)
         result = fetch_codes(req, make_factory(), self.codes, self.watchlist)
-        # 自己 (A, D) + others (alice A, alice B, bob A, carol A 进 others)
-        # others_n=1 默认, A 取最早 (carol 10min), B 取 1 个 (alice) = 2
-        # 总共 2 + 2 = 4
+        # 自己 (A, D) + watchlist 关闭 (alice/bob 降级到 others) + cap=1
+        # A: carol 10min 赢 → 1; B: alice 25min → 1
+        # 总 2 + 2 = 4
         self.assertEqual(result.fetched, 4)
         # alice A 不在 (因为 carol 更快), alice B 在 (B 题只有 alice)
         self.assertFalse(self.codes.exists("qoj", "2564", "A", "alice"))
@@ -210,14 +220,13 @@ class TestFetchBasic(unittest.TestCase):
         self.assertFalse(self.codes.exists("qoj", "2564", "A", "carol"))
 
     def test_others_n(self):
+        # samples_per_problem=3: watchlist A 池 (alice, bob) 2 个不够 3, 补 carol
         req = FetchRequest(platform="qoj", cid="2564", username="tarjen",
-                          fetch_others="top_n_fastest", others_n=2,
-                          request_interval=0)
+                          samples_per_problem=3, request_interval=0)
         result = fetch_codes(req, make_factory(), self.codes, self.watchlist)
-        # mine (2) + watchlist AC (3) + others top_n=2 from carol (1, 因为 carol 只有 A 一份)
-        # = 2 + 3 + 1 = 6
+        # mine 2 + A 池 (alice, bob, carol = 3) + B 池 (alice = 1) = 6
         self.assertEqual(result.fetched, 6)
-        # carol 在 others 里只有 A
+        # carol 在 A 池第 3 位
         self.assertTrue(self.codes.exists("qoj", "2564", "A", "carol"))
 
     def test_filter_by_problems(self):
@@ -227,6 +236,110 @@ class TestFetchBasic(unittest.TestCase):
         # 只抓 A 题: tarjen A, alice A, bob A, carol A = 4
         self.assertEqual(result.fetched, 4)
         self.assertFalse(self.codes.exists("qoj", "2564", "D", "tarjen"))
+        self.assertFalse(self.codes.exists("qoj", "2564", "B", "alice"))
+
+    # === 新策略测试 (samples_per_problem + watchlist 优先) ===
+
+    def test_samples_per_problem_default_5(self):
+        """默认 samples_per_problem=5, mock 数据不够 5 — 跟 test_basic 行为一致."""
+        req = FetchRequest(platform="qoj", cid="2564", username="tarjen",
+                          request_interval=0)
+        result = fetch_codes(req, make_factory(), self.codes, self.watchlist)
+        # mine 2 + A 池 (alice, bob, carol = 3 < 5) + B 池 (alice = 1) = 6
+        self.assertEqual(result.fetched, 6)
+        # 默认确实是 5
+        self.assertEqual(req.samples_per_problem, 5)
+
+    def test_watchlist_priority(self):
+        """watchlist 慢 user (dave 35min) 仍排在 others 快 user (carol 10min) 前面."""
+        # 加 dave 进 watchlist, mock 一个 dave 的 A AC (35min, 比 carol 10min 慢)
+        self.watchlist.add(["dave"])
+        dave_sub = Submission(
+            platform="qoj", submission_id="10008", user="dave",
+            problem="A", verdict="AC", submitted_at="",
+            contest_time_seconds=35*60, language="GNU C++17", code_length=1100,
+        )
+        req = FetchRequest(platform="qoj", cid="2564", username="tarjen",
+                          samples_per_problem=5, request_interval=0)
+        result = fetch_codes(req, make_factory(extra_subs=[dave_sub]),
+                            self.codes, self.watchlist)
+        # mine 2 + A 池 (alice, bob, dave, carol, dave 时间晚 = 4 unique; cap 5 没用上) + B 池 (alice = 1) = 7
+        # 实际: alice(18), bob(24), dave(35) watchlist AC for A; carol(10) others. 共 4 unique.
+        # mine 2 + 4 + 1 = 7
+        self.assertEqual(result.fetched, 7)
+        # dave 进了, 而且 source 是 watchlist
+        files = self.codes.list_files("qoj", "2564")
+        by_user = {f.user: f for f in files}
+        self.assertEqual(by_user["dave"].source, "watchlist")
+        self.assertEqual(by_user["carol"].source, "sample")
+
+    def test_watchlist_capped_then_others_fill(self):
+        """watchlist 3 个早 AC (5/7/8min) + cap=3, watchlist 已满, carol (10min others) 不进."""
+        # 加 dave, eve, frank 进 watchlist, 时间故意早于 carol (10min)
+        self.watchlist.add(["dave", "eve", "frank"])
+        extras = [
+            Submission(platform="qoj", submission_id="10008", user="dave",
+                       problem="A", verdict="AC", submitted_at="",
+                       contest_time_seconds=5*60, language="GNU C++17", code_length=1100),
+            Submission(platform="qoj", submission_id="10009", user="eve",
+                       problem="A", verdict="AC", submitted_at="",
+                       contest_time_seconds=7*60, language="GNU C++17", code_length=1100),
+            Submission(platform="qoj", submission_id="10010", user="frank",
+                       problem="A", verdict="AC", submitted_at="",
+                       contest_time_seconds=8*60, language="GNU C++17", code_length=1100),
+        ]
+        req = FetchRequest(platform="qoj", cid="2564", username="tarjen",
+                          samples_per_problem=3, request_interval=0)
+        result = fetch_codes(req, make_factory(extra_subs=extras),
+                            self.codes, self.watchlist)
+        # A 池按 time: dave(5), eve(7), frank(8), carol(10), alice(18), bob(24)
+        # cap=3 → dave, eve, frank. carol/Alice A/Bob A 都不进.
+        # mine 2 + A 池 3 + B 池 (alice=1) = 6
+        self.assertEqual(result.fetched, 6)
+        self.assertFalse(self.codes.exists("qoj", "2564", "A", "carol"))
+        self.assertFalse(self.codes.exists("qoj", "2564", "A", "alice"))
+        self.assertTrue(self.codes.exists("qoj", "2564", "A", "frank"))
+
+    def test_watchlist_insufficient_then_others_fill(self):
+        """watchlist 2 个 A AC + cap=5, 不够, 补 carol 进 A 池."""
+        req = FetchRequest(platform="qoj", cid="2564", username="tarjen",
+                          samples_per_problem=5, request_interval=0)
+        result = fetch_codes(req, make_factory(), self.codes, self.watchlist)
+        # mine 2 + A 池 (alice, bob, carol = 3) + B 池 (alice = 1) = 6
+        self.assertEqual(result.fetched, 6)
+        # carol 进了 (因为 watchlist 不满 5)
+        self.assertTrue(self.codes.exists("qoj", "2564", "A", "carol"))
+
+    def test_legacy_others_n_deprecation_warning(self):
+        """传旧字段 others_n 仍能工作, 触发 DeprecationWarning, 转发到 samples_per_problem."""
+        import warnings
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            req = FetchRequest(platform="qoj", cid="2564", username="tarjen",
+                              others_n=2, request_interval=0)
+            self.assertTrue(any(
+                issubclass(w.category, DeprecationWarning)
+                and "others_n" in str(w.message)
+                for w in caught
+            ))
+            # 转发成功
+            self.assertEqual(req.samples_per_problem, 2)
+        # 实际 fetch: cap=2, A 池 watchlist 2 (alice, bob) 已满, 不进 others
+        # mine 2 + A 池 2 + B 池 1 = 5
+        result = fetch_codes(req, make_factory(), self.codes, self.watchlist)
+        self.assertEqual(result.fetched, 5)
+        self.assertFalse(self.codes.exists("qoj", "2564", "A", "carol"))
+
+    def test_single_problem(self):
+        """--problem A 等价于 problems=['A']. 显式单题 fetch 走通."""
+        req = FetchRequest(platform="qoj", cid="2564", username="tarjen",
+                          problems=["A"], request_interval=0)
+        result = fetch_codes(req, make_factory(), self.codes, self.watchlist)
+        # mine A + A 池 (alice, bob, carol = 3) = 4
+        self.assertEqual(result.fetched, 4)
+        # 自己的 D 提交 (WA) 不抓 — 因为 problems=['A'] 过滤
+        self.assertFalse(self.codes.exists("qoj", "2564", "D", "tarjen"))
+        # B 题的 watchlist AC 也不抓
         self.assertFalse(self.codes.exists("qoj", "2564", "B", "alice"))
 
 

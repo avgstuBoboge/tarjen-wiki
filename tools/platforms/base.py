@@ -6,10 +6,20 @@ tools/platforms/base.py — 比赛平台抽象基类
 让 server.py / cli_main.py 跟具体 OJ 解耦——加新 OJ 只需写一个 client 类并注册。
 
 抽象方法 (各 OJ 必须实现):
-  - cookies_valid()             检查 cookie 是否还有效
-  - get_contest_meta(cid)       比赛标题 / 题数 / 起止时间
+  - cookies_valid()                  检查 cookie 是否还有效
+  - get_contest_meta(cid)            比赛标题 / 题数 / 起止时间
   - get_user_submissions(cid, user)  某用户在该比赛的所有提交
-  - get_submission_code(sid)    取单份提交代码 + 语言
+  - get_user_standings(cid, user)    从 standings 拿某 user 的每题结果
+  - get_all_user_standings(cid)      从 standings 拿所有 user 的 AC
+  - get_submission_code(sid)         取单份提交代码 + 语言
+  - get_problem_letters(cid)         列出比赛题目 (canonical letter)
+
+URL 助手 (concrete, 默认模板对应 QOJ 风格):
+  - contest_url(cid)                 比赛浏览 URL
+  - standings_url(cid)              排行榜 URL
+  - problem_url(cid, letter)         单题浏览 URL
+  - submission_url(sid)              单份提交浏览 URL
+  - parse_problem_ref(raw, cid)      归一化 OJ-native problem 引用
 """
 from __future__ import annotations
 
@@ -104,6 +114,15 @@ class PlatformClient(ABC):
 
     # 子类必须设置 (例如 "qoj", "codeforces", "atcoder")
     name: ClassVar[str] = ""
+    BASE_URL: ClassVar[str] = ""
+    # URL 模板: 子类覆盖需要的 key 即可, 默认对应 QOJ 风格.
+    # 可用 key: contest / standings / problem / submission.
+    URL_TEMPLATES: ClassVar[dict[str, str]] = {
+        "contest":    "/contest/{cid}",
+        "standings":  "/contest/{cid}/standings",
+        "problem":    "/contest/{cid}/problem/{letter}",
+        "submission": "/submission/{sid}",
+    }
 
     @abstractmethod
     def cookies_valid(self) -> bool:
@@ -142,6 +161,41 @@ class PlatformClient(ABC):
     @abstractmethod
     def get_submission_code(self, submission_id: str) -> tuple[str, str]:
         """获取单份提交的代码 + 语言. 返回 (code, language)."""
+
+    @abstractmethod
+    def get_problem_letters(self, contest_id: str) -> list[str]:
+        """列出比赛题目的 canonical letter (按平台规定的顺序).
+
+        例: QOJ 返 ["A", "B", "C", ...].
+        用于 fetch_codes / CLI 拿到题号列表 (单一真相源).
+        """
+
+    # === URL 助手 (concrete) — 子类覆盖 BASE_URL + URL_TEMPLATES 即可 ===
+
+    def contest_url(self, contest_id: str | int) -> str:
+        return self.BASE_URL + self.URL_TEMPLATES["contest"].format(cid=contest_id)
+
+    def standings_url(self, contest_id: str | int) -> str:
+        return self.BASE_URL + self.URL_TEMPLATES["standings"].format(cid=contest_id)
+
+    def problem_url(self, contest_id: str | int, letter: str) -> str:
+        return self.BASE_URL + self.URL_TEMPLATES["problem"].format(
+            cid=contest_id, letter=letter,
+        )
+
+    def submission_url(self, submission_id: str | int) -> str:
+        return self.BASE_URL + self.URL_TEMPLATES["submission"].format(
+            sid=submission_id,
+        )
+
+    def parse_problem_ref(self, raw: str, contest_id: str | int) -> str:
+        """归一化 OJ-native problem 引用 → canonical letter.
+
+        默认实现 = 透传 (适用于 QOJ: 内部一律用 A/B/C, 用户也按 A/B/C 传).
+        CF 实现: "1234A" → "A"
+        AtCoder 实现: "abc123_a" → "a"
+        """
+        return raw
 
 
 # === 注册表 ===

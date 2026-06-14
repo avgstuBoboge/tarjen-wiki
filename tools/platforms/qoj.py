@@ -378,6 +378,12 @@ class QojClient(PlatformClient):
     name = "qoj"
 
     BASE_URL = "https://qoj.ac"
+    URL_TEMPLATES = {
+        "contest":    "/contest/{cid}",
+        "standings":  "/contest/{cid}/standings",
+        "problem":    "/contest/{cid}/problem/{letter}",
+        "submission": "/submission/{sid}",
+    }
     DEFAULT_TIMEOUT = 30
     DEFAULT_INTERVAL = 1.5
 
@@ -399,7 +405,7 @@ class QojClient(PlatformClient):
         ))
 
     def get_contest_meta(self, contest_id: str) -> ContestMeta:
-        html = self._fetch(f"/contest/{contest_id}")
+        html = self._fetch(self.URL_TEMPLATES["contest"].format(cid=contest_id))
         return self._parse_contest_meta(html, contest_id)
 
     def get_user_submissions(self, contest_id: str, user: str) -> list[Submission]:
@@ -434,11 +440,11 @@ class QojClient(PlatformClient):
         返回: {letter: StandingsEntry} — 只含提交过的题.
         """
         # 1. 拿比赛页 → letter 顺序 (pid 是 0-indexed 字母序)
-        meta_html = self._fetch(f"/contest/{contest_id}")
-        letters = self._extract_problem_letters(meta_html)
+        meta_html = self._fetch(self.URL_TEMPLATES["contest"].format(cid=contest_id))
+        letters = self.extract_problem_letters(meta_html)
 
         # 2. 拿 standings 页 → 解析 score[user]
-        standings_html = self._fetch(f"/contest/{contest_id}/standings")
+        standings_html = self._fetch(self.URL_TEMPLATES["standings"].format(cid=contest_id))
         score = self._parse_score_for_user(standings_html, user)
 
         # 3. pid → letter → StandingsEntry
@@ -466,8 +472,13 @@ class QojClient(PlatformClient):
         return result
 
     def get_submission_code(self, submission_id: str) -> tuple[str, str]:
-        html = self._fetch(f"/submission/{submission_id}")
+        html = self._fetch(self.URL_TEMPLATES["submission"].format(sid=submission_id))
         return self._parse_code(html)
+
+    def get_problem_letters(self, contest_id: str) -> list[str]:
+        """Abstract method impl. 拉比赛页 → 解析 canonical letter."""
+        html = self._fetch(self.URL_TEMPLATES["contest"].format(cid=contest_id))
+        return self.extract_problem_letters(html)
 
     def get_all_user_standings(self, contest_id: str,
                                 exclude_users: set[str] | None = None
@@ -480,10 +491,10 @@ class QojClient(PlatformClient):
         """
         exclude_users = exclude_users or set()
         # 1. 拿 contest 字母顺序
-        meta_html = self._fetch(f"/contest/{contest_id}")
-        letters = self._extract_problem_letters(meta_html)
+        meta_html = self._fetch(self.URL_TEMPLATES["contest"].format(cid=contest_id))
+        letters = self.extract_problem_letters(meta_html)
         # 2. 拿 standings, 解析全部 score
-        standings_html = self._fetch(f"/contest/{contest_id}/standings")
+        standings_html = self._fetch(self.URL_TEMPLATES["standings"].format(cid=contest_id))
         m = RE_STANDINGS_JS.search(standings_html)
         if not m:
             raise ParseError("找不到 standings JS 数据")
@@ -591,7 +602,7 @@ class QojClient(PlatformClient):
         if not title:
             title = raw_title
 
-        letters = self._extract_problem_letters(html)
+        letters = self.extract_problem_letters(html)
         if not letters:
             raise ParseError(f"找不到 problem listing, HTML 长度 {len(html)}")
         problem_count = len(letters)
@@ -609,14 +620,27 @@ class QojClient(PlatformClient):
             problem_count=problem_count,
             start_time=start_time,
             end_time=end_time,
-            url=f"{self.BASE_URL}/contest/{contest_id}",
+            url=self.contest_url(contest_id),
         )
 
-    def _extract_problem_letters(self, html: str) -> list[str]:
-        """从比赛页提取题目字母, 按 A, B, C, ... 顺序."""
+    def extract_problem_letters(self, html: str) -> list[str]:
+        """从比赛页提取题目字母, 按 A, B, C, ... 顺序.
+
+        受保护方法 (单下划线已省): 可被子类覆盖以适配不同 HTML 结构.
+        公开入口是 get_problem_letters(contest_id) (PlatformClient 抽象).
+        """
         matches = RE_PROBLEM_LISTING.findall(html)
         # matches 是 list[tuple]: 每个 tuple 有一个非空元素 (letter)
         return [m[0] or m[1] for m in matches]
+
+    def _extract_problem_letters(self, html: str) -> list[str]:
+        """Deprecated: 已重命名为 extract_problem_letters (去下划线)."""
+        import warnings
+        warnings.warn(
+            "QojClient._extract_problem_letters 已废弃, 改用 extract_problem_letters",
+            DeprecationWarning, stacklevel=2,
+        )
+        return self.extract_problem_letters(html)
 
     def _parse_score_for_user(self, html: str, user: str) -> dict:
         """从 standings 页 JS 数据里找 user 的 score 表.

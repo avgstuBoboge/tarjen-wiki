@@ -20,10 +20,13 @@ wiki update 2521
 # 5. 几天后: 检测补题 (. / ! → Ø)
 wiki upsolve 2521
 
-# 6. 抓代码 (自己 + watchlist + 每题最快 1 个 sample)
-wiki codes 2521
-wiki codes-list 2521            # 看抓了啥
-wiki codes-show 2521 tarjen A   # 看具体某份
+# 6. 抓代码 (自己 + watchlist + 每题最多 5 个 sample, watchlist 优先)
+wiki codes 2521                          # 全抓
+wiki codes 2521 --problem A              # 只抓 A 题
+wiki codes 2521 --only-mine              # 只抓自己的 (含 WA)
+wiki codes 2521 --samples 10             # 每题 10 个 sample
+wiki codes-list 2521                     # 看抓了啥
+wiki codes-show 2521 tarjen A            # 看具体某份
 
 # 7. 推 GH Pages
 mkdocs gh-deploy
@@ -40,7 +43,7 @@ mkdocs gh-deploy
 | `wiki set <slug> [--status A=O] [--problems "O;.;!"]` | 改字段 |
 | `wiki update <cid> [--user X] [--date YYYY.M.D] [-y]` | 抓比赛 (standings) |
 | `wiki upsolve <cid> [--user X] [-y]` | 检测补题 (submissions) |
-| `wiki codes <cid> [--only-mine] [--sample N] [-y]` | 抓代码 |
+| `wiki codes <cid> [--oj X] [--problem A] [--samples N] [--only-mine] [-y]` | 抓代码 |
 | `wiki codes-list <cid> [--problem A] [--user X] [--source mine\|sample]` | 列已抓 |
 | `wiki codes-show <cid> <user> <problem>` | 看某份代码 (less) |
 | `wiki cookies {import <file> \| set \| status}` | 配 cookie |
@@ -126,10 +129,12 @@ macOS / Linux / Windows (Git Bash / cmd / PowerShell) 全平台. Python 3.9+.
 
 ## 加新 OJ (CF / AtCoder / ...)
 
-1. 写 `tools/platforms/<name>.py` (继承 `PlatformClient`, 实现 4 个 abstractmethod)
-2. 在 `tools/platforms/__init__.py` 加 `@register` 装饰器
-3. 写 `tests/platforms/test_<name>.py` + fixtures
-4. ~200 行代码. API/CLI 不变, 多一个 `--platform cf` 选项.
+1. 写 `tools/platforms/<name>.py` (继承 `PlatformClient`, 实现 6 个 abstractmethod, 含 `get_problem_letters(cid)`)
+2. 覆盖类属性 `BASE_URL` + `URL_TEMPLATES` (4 个 URL key: contest/standings/problem/submission)
+3. 可选: 覆盖 `parse_problem_ref(raw, cid)` 以接受 OJ-native 形式 (CF `1234A` / AtCoder `abc123_a`)
+4. 在 `tools/platforms/__init__.py` 加 `@register` 装饰器
+5. 写 `tests/platforms/test_<name>.py` + fixtures
+6. ~250 行代码. API/CLI 不变, 多一个 `--oj <name>` 选项.
 
 ## 部署
 

@@ -360,6 +360,153 @@ class TestDailyWorkflow(IntegrationBase):
         self.assertTrue(self.git.status().clean)
 
 
+class TestFetchCodesE2E(IntegrationBase):
+    """端到端 fetch_codes: 用真实 QOJ fixture 跑完整抓代码流程.
+
+    fixtures 来自 tests/fixtures/qoj_real/ (300iq Contest 2 / contest 1357).
+    走 fetch_codes 全流程, 验证:
+      - 题目列表 (get_problem_letters) 走 fixture 拿到
+      - 自己 + watchlist + samples 三池合并, watchlist 优先
+      - 代码写到 CodesStore (新结构: <platform>/<cid>/<problem>/<user>.<ext>)
+      - source 标记正确 (mine / watchlist / sample)
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.fixtures = REPO_ROOT / "tests" / "fixtures" / "qoj_real"
+        cls.contest_html = (cls.fixtures / "contest_1357.html").read_text(encoding="utf-8")
+        cls.standings_html = (cls.fixtures / "standings_1357.html").read_text(encoding="utf-8")
+        cls.submission_html = (cls.fixtures / "submission_1336269.html").read_text(encoding="utf-8")
+
+    def _make_factory(self):
+        """返回 fetch_fn 走 fixture 的 client 工厂."""
+        from platforms.qoj import QojClient
+
+        def fetch_fn(url, cookie):
+            if url.endswith("/contest/1357"):
+                return self.contest_html
+            if url.endswith("/contest/1357/standings"):
+                return self.standings_html
+            if url.startswith("/submission/"):
+                return self.submission_html
+            return "<html></html>"
+
+        def factory(platform):
+            client = QojClient(
+                cookies={"uoj_remember_token": "T",
+                         "uoj_remember_token_checksum": "C",
+                         "UOJSESSID": "S"},
+                request_interval=0,
+            )
+            client._fetch_fn = fetch_fn
+            return client
+        return factory
+
+    def _setup_codes_store(self):
+        """建独立 codes 目录 (避免污染)."""
+        from codes_store import CodesStore, ensure_gitignore
+        codes_root = Path(tempfile.mkdtemp()) / "codes"
+        ensure_gitignore(codes_root)
+        return CodesStore(codes_root)
+
+    def _setup_watchlist(self, *users):
+        from watchlist import Watchlist
+        wl = Watchlist(Path(tempfile.mkdtemp()) / "watchlist.txt")
+        wl.add(list(users))
+        return wl
+
+    def test_full_flow_default(self):
+        """wiki codes 1357  (默认: 自己全 + watchlist + 5 samples/题)."""
+        from codes_logic import FetchRequest, fetch_codes
+        codes = self._setup_codes_store()
+        wl = self._setup_watchlist("cyp063")  # fixture 里有这个用户的提交
+        result = fetch_codes(
+            FetchRequest(platform="qoj", cid="1357", username="tarjen",
+                        request_interval=0),
+            self._make_factory(), codes, wl,
+        )
+        # 走通 + 至少有一些 fetched
+        self.assertEqual(result.errors, 0)
+        self.assertGreater(result.fetched, 0)
+        # source 标记三类都有
+        by_src = {f["source"] for f in result.files}
+        self.assertIn("mine", by_src)
+        self.assertIn("sample", by_src)
+        # 文件实际落盘 (新结构: qoj/1357/<prob>/<user>.<ext>)
+        files = codes.list_files("qoj", "1357")
+        self.assertEqual(len(files), result.fetched)
+        for f in files:
+            p = Path(codes.root) / "qoj" / "1357" / f.problem / f"{f.user}.cpp"
+            self.assertTrue(p.exists(), f"missing {p}")
+            self.assertGreater(p.stat().st_size, 50)  # 不是空
+
+    def test_single_problem(self):
+        """wiki codes 1357 --problem B  (单 problem fetch)."""
+        from codes_logic import FetchRequest, fetch_codes
+        codes = self._setup_codes_store()
+        wl = self._setup_watchlist("cyp063")
+        result = fetch_codes(
+            FetchRequest(platform="qoj", cid="1357", username="tarjen",
+                        problems=["B"], request_interval=0),
+            self._make_factory(), codes, wl,
+        )
+        self.assertEqual(result.errors, 0)
+        # 只抓 B 题
+        files = codes.list_files("qoj", "1357", problem="B")
+        self.assertGreater(len(files), 0)
+        all_problems = {f.problem for f in codes.list_files("qoj", "1357")}
+        self.assertEqual(all_problems, {"B"})
+
+    def test_samples_cap(self):
+        """wiki codes 1357 --samples 2  (cap 生效)."""
+        from codes_logic import FetchRequest, fetch_codes
+        codes = self._setup_codes_store()
+        wl = self._setup_watchlist()
+        result = fetch_codes(
+            FetchRequest(platform="qoj", cid="1357", username="tarjen",
+                        samples_per_problem=2, request_interval=0),
+            self._make_factory(), codes, wl,
+        )
+        self.assertEqual(result.errors, 0)
+        # 每题 watchlist+others 池上限 2 — 验证
+        files = codes.list_files("qoj", "1357")
+        from collections import Counter
+        per_problem = Counter(f.problem for f in files if f.source != "mine")
+        for prob, n in per_problem.items():
+            self.assertLessEqual(n, 2, f"题 {prob} 非 mine 数量 {n} 超过 cap=2")
+
+    def test_url_helpers(self):
+        """PlatformClient URL 助手 — QOJ 实例."""
+        c = self._make_factory()("qoj")
+        self.assertEqual(c.contest_url("1357"), "https://qoj.ac/contest/1357")
+        self.assertEqual(c.standings_url("1357"),
+                         "https://qoj.ac/contest/1357/standings")
+        self.assertEqual(c.problem_url("1357", "A"),
+                         "https://qoj.ac/contest/1357/problem/A")
+        self.assertEqual(c.submission_url("1336269"),
+                         "https://qoj.ac/submission/1336269")
+        # get_problem_letters 走 fixture 拿真实字母列表
+        letters = c.get_problem_letters("1357")
+        self.assertGreater(len(letters), 0)
+        self.assertEqual(letters[0], "A")
+
+    def test_legacy_others_n_warning(self):
+        """FetchRequest.others_n 仍能工作, 触发 DeprecationWarning + 转发."""
+        import warnings
+        from codes_logic import FetchRequest
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            req = FetchRequest(platform="qoj", cid="1357", username="tarjen",
+                              others_n=3, request_interval=0)
+            self.assertTrue(any(
+                issubclass(w.category, DeprecationWarning)
+                and "others_n" in str(w.message)
+                for w in caught
+            ))
+            self.assertEqual(req.samples_per_problem, 3)
+
+
 class TestErrorPaths(IntegrationBase):
     """错误路径 (独立测试, 不依赖 TestDailyWorkflow 的状态)."""
 

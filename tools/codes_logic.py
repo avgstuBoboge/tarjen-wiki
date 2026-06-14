@@ -4,10 +4,13 @@ tools/codes_logic.py — 代码抓取的业务逻辑
 
 被 server.py 调用. 不依赖 FastAPI.
 
-策略 (watchlist + sample):
+策略 (watchlist 优先 + sample):
   - 自己的提交: 全抓 (含 WA/TLE, 用于复盘)
-  - watchlist 用户: 所有 AC
-  - 其他用户: 每题最早 AC 的前 N 个 (默认 N=1)
+  - watchlist 用户: 所有 AC (放在 sample 池前面)
+  - 其他用户: 补到 samples_per_problem/题 (默认 5)
+  池: 每题 watchlist AC 按时间排, 然后补 others AC, dedup 按 (user, problem),
+      截到 samples_per_problem.
+  当 fetch_others="none" 时, 池只剩 watchlist AC, 上限 samples_per_problem/题.
 
 后端 store: ~/.local/share/wiki/codes/<cid>/<user>/<prob>.<ext>
 索引: ~/.local/share/wiki/codes/<cid>/index.json
@@ -77,11 +80,24 @@ class FetchRequest:
     fetch_self: bool = True
     fetch_watchlist: bool = True
     fetch_others: str = "top_n_fastest"   # "top_n_fastest" | "top_n_shortest" | "random_n" | "none"
-    others_n: int = 1
+    samples_per_problem: int = 5
     problems: list[str] | None = None
     skip_existing: bool = True
     timeout_seconds: int = 600
     request_interval: float = 1.5
+    # Deprecated 字段: 转发到 samples_per_problem. 设了会触发 DeprecationWarning.
+    others_n: int | None = None
+
+    def __post_init__(self):
+        import warnings
+        if self.others_n is not None:
+            warnings.warn(
+                "FetchRequest.others_n 已废弃, 请改用 samples_per_problem",
+                DeprecationWarning, stacklevel=2,
+            )
+            self.samples_per_problem = self.others_n
+        if self.samples_per_problem < 0:
+            self.samples_per_problem = 0
 
 
 @dataclass
@@ -135,9 +151,23 @@ def fetch_codes(
     client = platform_client_factory(req.platform)
     platform = req.platform
 
-    # 2. 拿所有 AC (含自己/watchlist/others), 用 standings 数据 (结构化, 免 HTML 分页)
-    #    - mine: 用 get_user_standings (含 WAs/fails), 转成 "submission-like" 列表
-    #    - others: 用 get_all_user_standings 拿所有用户 AC, 按时间排
+    # 2. 题目列表 — 单一真相源 (从 OJ 拿, 不再硬编码 A-Z).
+    try:
+        all_letters = client.get_problem_letters(req.cid)
+    except Exception as e:
+        result.errors += 1
+        result.duration_seconds = time.time() - start
+        raise
+    # 过滤到子集 (CLI --problem)
+    if req.problems:
+        problems = [L for L in all_letters if L in req.problems]
+    else:
+        problems = all_letters
+    if not problems:
+        result.duration_seconds = round(time.time() - start, 2)
+        return result
+
+    # 3. 拿 standings (结构化, 免 HTML 分页)
     try:
         # 自己: 拿所有 StandingsEntry (含 WAs)
         my_standings = client.get_user_standings(req.cid, req.username) if req.fetch_self else {}
@@ -150,9 +180,9 @@ def fetch_codes(
         result.duration_seconds = time.time() - start
         raise
 
-    # 3. 自己: 转 submission 列表 (含 WAs, 用于复盘)
-    mine_subs = _standings_to_subs(my_standings, req.username, req.problems)
-    # watchlist: 需要按用户名拿 — 复用 get_user_standings (一个个)
+    # 4. 自己: 转 submission 列表 (含 WAs, 用于复盘)
+    mine_subs = _standings_to_subs(my_standings, req.username, problems)
+    # 5. watchlist: AC only
     watchlist_subs = []
     if req.fetch_watchlist:
         for u in wl_users:
@@ -168,31 +198,51 @@ def fetch_codes(
                 })
                 continue
             for entry in u_standings.values():
-                if req.problems and entry.letter not in req.problems:
+                if entry.letter not in problems:
                     continue
                 if entry.verdict == "AC":  # watchlist 只看 AC
                     watchlist_subs.append(_entry_to_sub(entry, u))
 
-    # 4. others: 从 standings 选 top N
-    #    - 自己永远排除
-    #    - watchlist 用户只在 fetch_watchlist=True 时排除
-    #    (watchlist=False 时, watchlist 用户降级到 others — 跟旧行为一致)
+    # 6. 构造 pool_per_problem (watchlist 优先, 不够再补 others, 每题 cap)
+    #    排除集合:
+    #      - self 永远排除
+    #      - watchlist 用户只在 fetch_watchlist=True 时排除 (否则降级到 others)
     others_exclude = {req.username}
     if req.fetch_watchlist:
         others_exclude |= wl_users
-    others_files = _pick_others_from_standings(
-        others_per_problem, req.fetch_others, req.others_n,
-        req.problems, exclude_users=others_exclude,
-    )
+    pool_per_problem: dict[str, list[Submission]] = {L: [] for L in problems}
+    for L in problems:
+        # 6a. watchlist AC (按 time 升序)
+        if req.fetch_watchlist:
+            wl_for_letter = sorted(
+                [s for s in watchlist_subs if s.problem == L],
+                key=lambda s: s.contest_time_seconds if s.contest_time_seconds is not None else 10**9,
+            )
+            pool_per_problem[L].extend(wl_for_letter)
+        # 6b. others AC (按 time 升序 — get_all_user_standings 已排好)
+        if req.fetch_others != "none":
+            others_for_letter = _pick_others_for_problem(
+                others_per_problem.get(L, []), req.fetch_others, L,
+                exclude_users=others_exclude,
+            )
+            pool_per_problem[L].extend(others_for_letter)
 
-    # 5. 合并去重 (按 user+prob)
-    my_files = mine_subs  # 自己所有
-    wl_files = watchlist_subs  # watchlist 的 AC
+    # 7. 每题去重 (按 user) + 截到 samples_per_problem
+    pool_subs: list[Submission] = []
+    for L in problems:
+        seen_user: set[str] = set()
+        for s in pool_per_problem[L]:
+            if s.user in seen_user:
+                continue
+            seen_user.add(s.user)
+            pool_subs.append(s)
+            if len(seen_user) >= req.samples_per_problem:
+                break
 
-    # 5. 合并去重 (按 user+prob)
+    # 8. final = mine + pool, 再去重一次 (防御性 — 自己可能在 watchlist 里)
     seen: set[tuple[str, str]] = set()
-    final = []
-    for s in my_files + wl_files + others_files:
+    final: list[Submission] = []
+    for s in mine_subs + pool_subs:
         key = (s.user, s.problem)
         if key in seen:
             continue
@@ -280,46 +330,40 @@ def _entry_to_sub(entry, user: str) -> Submission:
     )
 
 
-def _pick_others_from_standings(
-    per_problem: dict[str, list[FastestACEntry]],
-    mode: str, n: int,
-    problems: list[str] | None,
+def _pick_others_for_problem(
+    entries: list[FastestACEntry],
+    mode: str,
+    letter: str,
     exclude_users: set[str],
 ) -> list[Submission]:
-    """从 standings 拿的 per_problem 选 others.
+    """从 standings 拿的单题 others 选 candidates (不截, cap 在 pool 层做).
 
-    per_problem[letter] 已经是按时间排好序的 (最快在前).
+    entries 已按时间升序 (get_all_user_standings 排好).
+    返回的 Submission.problem 填上 letter (callers 不会再覆盖).
     """
     if mode == "none":
         return []
-    out: list[Submission] = []
-    for letter, entries in per_problem.items():
-        if problems and letter not in problems:
-            continue
-        # 排除 self+watchlist
-        candidates = [e for e in entries if e.user not in exclude_users and e.submission_id]
-        if not candidates:
-            continue
-        if mode == "top_n_fastest":
-            pass  # 已经是按时间排, 直接取前 n
-        elif mode == "top_n_shortest":
-            # 不知道 code_length, 用 random 退化
-            random.shuffle(candidates)
-        elif mode == "random_n":
-            random.shuffle(candidates)
-        for e in candidates[:n]:
-            out.append(Submission(
-                platform="qoj",
-                submission_id=e.submission_id,
-                user=e.user,
-                problem=letter,
-                verdict="AC",
-                submitted_at="",
-                contest_time_seconds=e.time_seconds,
-                language=None,
-                code_length=None,
-            ))
-    return out
+    candidates = [e for e in entries if e.user not in exclude_users and e.submission_id]
+    if not candidates:
+        return []
+    if mode == "top_n_fastest":
+        pass  # 已经是按时间排
+    elif mode == "top_n_shortest":
+        # 不知道 code_length, 用 random 退化
+        random.shuffle(candidates)
+    elif mode == "random_n":
+        random.shuffle(candidates)
+    return [Submission(
+        platform="qoj",
+        submission_id=e.submission_id,
+        user=e.user,
+        problem=letter,
+        verdict="AC",
+        submitted_at="",
+        contest_time_seconds=e.time_seconds,
+        language=None,
+        code_length=None,
+    ) for e in candidates]
 
 
 def _secs_to_str(secs: int | None) -> str | None:
