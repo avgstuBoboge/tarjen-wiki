@@ -1,9 +1,10 @@
 site_name: 比赛记录 Wiki
 site_description: 编程比赛记录与题解
 site_author: tarjen
+site_url: https://avgstuboboge.github.io/tarjen-wiki/
 
-repo_name: tarjen/tarjen-wiki
-repo_url: https://github.com/tarjen/tarjen-wiki
+repo_name: avgstuBoboge/tarjen-wiki
+repo_url: https://github.com/avgstuBoboge/tarjen-wiki
 edit_uri: edit/main/docs/
 
 docs_dir: docs
@@ -87,7 +88,7 @@ plugins:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/tarjen
+      link: https://github.com/avgstuBoboge
   generator: false
 
 extra_css:
