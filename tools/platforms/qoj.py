@@ -45,6 +45,7 @@ from .base import (
     FastestACEntry,
     NotFoundError,
     ParseError,
+    PlatformError,
     PlatformClient,
     StandingsEntry,
     Submission,
@@ -651,10 +652,45 @@ class QojClient(PlatformClient):
         m = RE_STANDINGS_JS.search(html)
         if not m:
             raise ParseError("找不到 standings JS 数据 (页面可能不是 standings 页)")
-        score_str = m.group(2)
-        # 转 JS 字面量为 JSON
-        score_json = parse_qoj_js_literal(score_str)
-        return score_json.get(user, {})
+        standings = parse_qoj_js_literal(m.group(1))
+        score_json = parse_qoj_js_literal(m.group(2))
+        score_key = self._resolve_score_key(score_json, standings, user)
+        return score_json.get(score_key, {}) if score_key else {}
+
+    @staticmethod
+    def _resolve_score_key(score_json: dict, standings: list, user: str) -> str | None:
+        """Map requested username/display name to the score table key.
+
+        Most contests use the login name directly as the score key. Some QOJ
+        standings rows, especially team/imported entries, use an internal key
+        such as "$DEFAULT_DAT_PREFIX_1" while the visible name lives in the
+        standings user object. Try exact match first, then case-insensitive
+        score keys, then aliases from standings rows.
+        """
+        if user in score_json:
+            return user
+
+        folded = user.casefold()
+        for key in score_json:
+            if isinstance(key, str) and key.casefold() == folded:
+                return key
+
+        for row in standings if isinstance(standings, list) else []:
+            if not (isinstance(row, list) and len(row) >= 3):
+                continue
+            user_obj = row[2]
+            if not isinstance(user_obj, list) or not user_obj:
+                continue
+            score_key = user_obj[0]
+            if score_key not in score_json:
+                continue
+
+            aliases = [value for value in user_obj if isinstance(value, str)]
+            for alias in aliases:
+                if alias == user or alias.casefold() == folded:
+                    return score_key
+
+        return None
 
     def _parse_submission_list(self, html: str, contest_id: str) -> list[Submission]:
         # 找每行 (含 ID 的) 然后从行内抽 sub-field (避免列序假设)

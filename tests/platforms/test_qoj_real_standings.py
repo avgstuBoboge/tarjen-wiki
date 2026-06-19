@@ -160,6 +160,36 @@ class TestRealGetUserStandings(unittest.TestCase):
         result = self.client.get_user_standings("1357", "no-such-user")
         self.assertEqual(result, {})
 
+    def test_display_name_maps_to_internal_score_key(self):
+        """Some QOJ team rows use an internal score key but show a name."""
+        contest_html = (FIXTURES / "contest_1357.html").read_text(encoding="utf-8")
+        standings_html = """
+        <script>
+        standings_version=1;
+        standings=[[100,123,["$DEFAULT_DAT_PREFIX_1",1500,3,"Boboge"],1,100]];
+        score={"$DEFAULT_DAT_PREFIX_1":{"1":[100,123,456,0,100,0,[100]]}};
+        problems=[1,2,3,4,5,6,7,8,9,10,11];
+        </script>
+        """
+
+        def fetch_fn(url, cookie):
+            if "/standings" in url:
+                return standings_html
+            return contest_html
+
+        client = make_mock_client()
+        client._fetch_fn = fetch_fn
+        result = client.get_user_standings("1357", "Boboge")
+        self.assertEqual(set(result.keys()), {"B"})
+        self.assertEqual(result["B"].score, 100)
+
+    def test_score_key_match_is_case_insensitive(self):
+        score = {"Boboge": {"0": [100, 1, 2, 0, 100, 0, [100]]}}
+        self.assertEqual(
+            self.client._resolve_score_key(score, [], "boboge"),
+            "Boboge",
+        )
+
 
 class TestRealSubmissionsParser(unittest.TestCase):
     """解析真实 QOJ 1357 提交列表 (用于 upsolve)."""
