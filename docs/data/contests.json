@@ -11,16 +11,6 @@
   ],
   "rows": [
     {
-      "slug": "2026",
-      "name": "2026 年山东省大学生程序设计竞赛",
-      "date": "2026.06.22",
-      "solved": 0,
-      "total": 13,
-      "problems": ".;.;.;.;.;.;.;.;.;.;.;.;.",
-      "link": "https://qoj.ac/contest/3767",
-      "tags": ""
-    },
-    {
       "slug": "2026-shandong-provincial-collegiate-programming-contest",
       "name": "2026 年山东省大学生程序设计竞赛",
       "date": "2026.06.22",

@@ -14,14 +14,13 @@
 <!-- SYNC:CONTESTS-START -->
 | 比赛 | 日期 | 题数 |  | A | B | C | D | E | F | G | H | I | J | K | L | M |
 |:-----|:----:|:----:|:---:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| [2026 年山东省大学生程序设计竞赛](contests/2026.md) | 2026.06.22 | 0/0/13 | [✎](editor/?slug=2026&_t=4679a9) | . | . | . | . | . | . | . | . | . | . | . | . | . |
 | [2026 年山东省大学生程序设计竞赛](contests/2026-shandong-provincial-collegiate-programming-contest.md) | 2026.06.22 | 7/7/13 | [✎](editor/?slug=2026-shandong-provincial-collegiate-programming-contest&_t=4679a9) | O | . | O | . | O | . | O | . | O | . | O | O | . |
 | [The 2019 Polish Collegiate Programming Contest (AMPPZ 2019)](contests/2026-the-2019-polish-collegiate-programming-contest-amppz-2019.md) | 2026.06.19 | 5/5/12 | [✎](editor/?slug=2026-the-2019-polish-collegiate-programming-contest-amppz-2019&_t=4679a9) | O | . | O | O | . | O | . | O | . | . | . | . |  |
 <!-- SYNC:CONTESTS-END -->
 
 ## 统计
 
-- 累计场次：<!-- SYNC:COUNT -->3<!-- /SYNC:COUNT -->
+- 累计场次：<!-- SYNC:COUNT -->2<!-- /SYNC:COUNT -->
 - 累计通过：约 <!-- SYNC:SOLVED -->12<!-- /SYNC:SOLVED --> 题
 
 ## 维护说明
