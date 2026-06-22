@@ -322,7 +322,7 @@ test('apiUrl constructs correct Contents API URL', () => {
   const { Wiki } = loadWiki();
   assert.equal(
     Wiki.apiUrl('contests.csv'),
-    'https://api.github.com/repos/tarjen/tarjen-wiki/contents/contests.csv'
+    'https://api.github.com/repos/avgstuBoboge/tarjen-wiki/contents/contests.csv'
   );
 });
 
@@ -330,7 +330,7 @@ test('rawUrl constructs correct raw URL', () => {
   const { Wiki } = loadWiki();
   assert.equal(
     Wiki.rawUrl('docs/contests/foo.md'),
-    'https://raw.githubusercontent.com/tarjen/tarjen-wiki/main/docs/contests/foo.md'
+    'https://raw.githubusercontent.com/avgstuBoboge/tarjen-wiki/main/docs/contests/foo.md'
   );
 });
 

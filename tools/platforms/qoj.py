@@ -548,7 +548,7 @@ class QojClient(PlatformClient):
             scraper = cloudscraper.create_scraper()
             scraper.headers.update({
                 "Cookie": cookie_header(self.cookies),
-                "User-Agent": "Mozilla/5.0 (compatible; Wiki-Backend/1.0; +https://github.com/tarjen/tarjen-wiki)",
+                "User-Agent": "Mozilla/5.0 (compatible; Wiki-Backend/1.0; +https://github.com/avgstuBoboge/tarjen-wiki)",
                 "Accept": "text/html,application/xhtml+xml",
             })
             elapsed = time.time() - self._last_request_at

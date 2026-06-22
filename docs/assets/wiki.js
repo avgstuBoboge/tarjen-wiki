@@ -6,7 +6,7 @@
   'use strict';
 
   // ---- 仓库元信息（要改 owner / repo / branch 只改这一处） ----
-  var REPO = { owner: 'tarjen', repo: 'tarjen-wiki', branch: 'main' };
+  var REPO = { owner: 'avgstuBoboge', repo: 'tarjen-wiki', branch: 'main' };
   // GH PAT：明文存 localStorage。
   // 之前的 v2 加密方案已删：威胁模型（有人能读 localStorage 同时又不能读内存 token）
   // 太弱，且每次开 tab 输密码太烦。不存 repo、不打印到 log、不写 commit message。
@@ -195,7 +195,7 @@
         if (inp) { setVisible(inp, true); }
         if (btnSv) { setVisible(btnSv, true); }
         if (st) st.textContent = '未配置';
-        if (banner) banner.textContent = '粘一个 fine-grained PAT（仓库勾 tarjen/tarjen-wiki，权限只勾 Contents: Read and write），点保存。';
+        if (banner) banner.textContent = '粘一个 fine-grained PAT（仓库勾 avgstuBoboge/tarjen-wiki，权限只勾 Contents: Read and write），点保存。';
         if (btnCl) setVisible(btnCl, false);
       }
     }

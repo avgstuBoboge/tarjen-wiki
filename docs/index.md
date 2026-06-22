@@ -14,8 +14,8 @@
 <!-- SYNC:CONTESTS-START -->
 | 比赛 | 日期 | 题数 |  | A | B | C | D | E | F | G | H | I | J | K | L | M |
 |:-----|:----:|:----:|:---:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| [The 2019 Polish Collegiate Programming Contest (AMPPZ 2019)](contests/2026-the-2019-polish-collegiate-programming-contest-amppz-2019.md) | 2026.06.15 | 6/5/12 | [✎](editor/?slug=2026-the-2019-polish-collegiate-programming-contest-amppz-2019&_t=4679a9) | O | . | O | O | . | O | . | O | Ø | . | . | . |  |
-| [2026 年山东省大学生程序设计竞赛](contests/2026-shandong-provincial-collegiate-programming-contest.md) | 2026.05.25 | 10/7/13 | [✎](editor/?slug=2026-shandong-provincial-collegiate-programming-contest&_t=4679a9) | O | . | O | Ø | O | . | O | Ø | O | Ø | O | O | . |
+| [The 2019 Polish Collegiate Programming Contest (AMPPZ 2019)](contests/2026-the-2019-polish-collegiate-programming-contest-amppz-2019.md) | 2026.06.15 | 6/5/12 | [✎](editor/?slug=2026-the-2019-polish-collegiate-programming-contest-amppz-2019&_t=752469) | O | . | O | O | . | O | . | O | Ø | . | . | . |  |
+| [2026 年山东省大学生程序设计竞赛](contests/2026-shandong-provincial-collegiate-programming-contest.md) | 2026.05.25 | 10/7/13 | [✎](editor/?slug=2026-shandong-provincial-collegiate-programming-contest&_t=752469) | O | . | O | Ø | O | . | O | Ø | O | Ø | O | O | . |
 <!-- SYNC:CONTESTS-END -->
 
 ## 统计
@@ -32,7 +32,7 @@
 1. 填比赛名、日期、题目总数
 2. 点格子循环切状态：**未做 → O（赛中过题）→ Ø（赛后补过）→ !（尝试没过）→ 未做**
 3. 滚到底部「💾 保存修改」面板
-4. **首次用**：点「⚙ GitHub Token 配置」生成 fine-grained PAT（仓库选 `tarjen/tarjen-wiki`，权限只勾 Contents: Read and write），粘进去点保存（明文存 localStorage，不上传服务器）
+4. **首次用**：点「⚙ GitHub Token 配置」生成 fine-grained PAT（仓库选 `avgstuBoboge/tarjen-wiki`，权限只勾 Contents: Read and write），粘进去点保存（明文存 localStorage，不上传服务器）
 5. 之后每次：点 **💾 保存到 GitHub** 就直接 PUT 到 `contests.csv`，完事
 
 配了 GitHub Actions 自动跑 `mkdocs build + gh-deploy` 的话，commit 完几秒后刷新页面就能看到新表。
@@ -70,10 +70,10 @@ qoj.ac 没设 CORS 头，浏览器默认拒掉跨域 response。装个 [Allow CO
 
 适合想用本地编辑器/脚本批量改、或习惯 git 工作流的人：
 
-1. `git clone git@github.com:tarjen/tarjen-wiki.git`（或 HTTPS）
+1. `git clone git@github.com:avgstuBoboge/tarjen-wiki.git`（或 HTTPS）
 2. `./bootstrap.sh` — 装 venv + 依赖；带 `--serve` 直接起本地预览
 3. 改源文件：
-   - [contests.csv](https://github.com/tarjen/tarjen-wiki/blob/main/contests.csv) — 加新比赛就补一行，`problems` 列写 `O/Ø/!/.` 分号分隔，日期用 `2024.11.24` 这种点分格式
+   - [contests.csv](https://github.com/avgstuBoboge/tarjen-wiki/blob/main/contests.csv) — 加新比赛就补一行，`problems` 列写 `O/Ø/!/.` 分号分隔，日期用 `2024.11.24` 这种点分格式
    - `docs/contests/<slug>.md` — 写题解
 4. `python3 tools/sync.py` — 重新生成上方表格、`docs/data/contests.json`、统计数据；**只**给 CSV 里新增的 slug 创建空的详情页
 5. `git add . && git commit -m "..." && git push`
