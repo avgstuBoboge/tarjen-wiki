@@ -56,6 +56,13 @@ DATE_RE = re.compile(r"^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})$")
 ALLOWED_PROBLEM_CHARS = set("OØ.!")
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9\-_.]*$")
 
+STATUS_LABELS = {
+    "O": "O 赛中过题",
+    "Ø": "Ø 赛后补过",
+    "!": "! 尝试未过",
+    ".": ". 未提交",
+}
+
 
 @dataclass
 class Contest:
@@ -254,6 +261,22 @@ def update_index_md(contests: list[Contest], *, dry_run: bool) -> None:
 
 # ---------- 创建占位详情页 ----------
 
+
+def render_problem_status_table(c: Contest) -> str:
+    letters = [chr(ord("A") + i) for i in range(c.total)]
+    statuses = [STATUS_LABELS.get(p, p) for p in c.problems]
+    total_solved = sum(1 for p in c.problems if p in ("O", "Ø"))
+    in_contest = sum(1 for p in c.problems if p == "O")
+    return "\n".join([
+        "<!-- SYNC:PROBLEM-STATUS-START -->",
+        f"题数：**{total_solved}/{in_contest}/{c.total}**（总通过 / 赛中过 / 总题数）",
+        "",
+        "| 题目 | " + " | ".join(letters) + " |",
+        "|:---:|" + "|".join([":---:"] * len(letters)) + "|",
+        "| 状态 | " + " | ".join(statuses) + " |",
+        "<!-- SYNC:PROBLEM-STATUS-END -->",
+    ])
+
 CONTEST_TEMPLATE = """# {name}
 
 !!! tip "快速编辑"
@@ -272,14 +295,9 @@ CONTEST_TEMPLATE = """# {name}
 | 排名 |  |
 | 标签 | {tags} |
 
-## 题目状态图例
+## 做题情况
 
-| 符号 | 含义 |
-|------|------|
-| `O` | 赛中过题 |
-| `Ø` | 赛后补过 |
-| `!` | 尝试过但未通过 |
-| `.` | 未提交 |
+{problem_status_table}
 
 ## 总结
 
@@ -314,6 +332,7 @@ def create_placeholders(contests: list[Contest], *, dry_run: bool) -> list[str]:
             solved=c.solved,
             total=c.total,
             tags=c.tags,
+            problem_status_table=render_problem_status_table(c),
         )
         if dry_run:
             print(f"[create] (dry-run) {target.relative_to(REPO_ROOT)}")
@@ -322,6 +341,43 @@ def create_placeholders(contests: list[Contest], *, dry_run: bool) -> list[str]:
             print(f"[create] {target.relative_to(REPO_ROOT)}")
         created.append(c.slug)
     return created
+
+
+def update_problem_status_sections(contests: list[Contest], *, dry_run: bool) -> None:
+    changed = 0
+    for c in contests:
+        target = CONTESTS_DIR / f"{c.slug}.md"
+        if not target.exists():
+            continue
+        text = target.read_text(encoding="utf-8")
+        section = f"## 做题情况\n\n{render_problem_status_table(c)}\n\n"
+        if "<!-- SYNC:PROBLEM-STATUS-START -->" in text:
+            new_text = re.sub(
+                r"## 做题情况\n\n<!-- SYNC:PROBLEM-STATUS-START -->.*?<!-- SYNC:PROBLEM-STATUS-END -->\n*",
+                section,
+                text,
+                count=1,
+                flags=re.DOTALL,
+            )
+        elif "## 题目状态图例" in text:
+            new_text = re.sub(
+                r"## 题目状态图例\n\n.*?(?=\n## 总结)",
+                section.rstrip(),
+                text,
+                count=1,
+                flags=re.DOTALL,
+            )
+        else:
+            new_text = text.replace("## 总结\n", section + "## 总结\n", 1)
+
+        if new_text == text:
+            continue
+        changed += 1
+        if dry_run:
+            print(f"[detail] (dry-run) 更新做题情况 {target.relative_to(REPO_ROOT)}")
+        else:
+            target.write_text(new_text, encoding="utf-8")
+            print(f"[detail] 更新做题情况 {target.relative_to(REPO_ROOT)}")
 
 
 # ---------- 入口 ----------
@@ -381,6 +437,7 @@ def main() -> None:
 
     update_index_md(contests, dry_run=args.dry_run)
     created = create_placeholders(contests, dry_run=args.dry_run)
+    update_problem_status_sections(contests, dry_run=args.dry_run)
     write_data_json(contests, dry_run=args.dry_run)
     if created:
         print(f"新建占位页 {len(created)} 个: {', '.join(created)}")

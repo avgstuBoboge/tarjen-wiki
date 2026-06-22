@@ -24,6 +24,30 @@ from pathlib import Path
 from csv_store import Contest  # noqa: E402
 
 
+STATUS_LABELS = {
+    "O": "O 赛中过题",
+    "Ø": "Ø 赛后补过",
+    "!": "! 尝试未过",
+    ".": ". 未提交",
+}
+
+
+def render_problem_status_table(contest: Contest) -> str:
+    letters = [chr(ord("A") + i) for i in range(contest.total)]
+    statuses = [STATUS_LABELS.get(p, p) for p in contest.problems]
+    total_solved = sum(1 for p in contest.problems if p in ("O", "Ø"))
+    in_contest = sum(1 for p in contest.problems if p == "O")
+    return "\n".join([
+        "<!-- SYNC:PROBLEM-STATUS-START -->",
+        f"题数：**{total_solved}/{in_contest}/{contest.total}**（总通过 / 赛中过 / 总题数）",
+        "",
+        "| 题目 | " + " | ".join(letters) + " |",
+        "|:---:|" + "|".join([":---:"] * len(letters)) + "|",
+        "| 状态 | " + " | ".join(statuses) + " |",
+        "<!-- SYNC:PROBLEM-STATUS-END -->",
+    ])
+
+
 CONTEST_TEMPLATE = """# {name}
 
 !!! tip "快速编辑"
@@ -42,14 +66,9 @@ CONTEST_TEMPLATE = """# {name}
 | 排名 |  |
 | 标签 | {tags} |
 
-## 题目状态图例
+## 做题情况
 
-| 符号 | 含义 |
-|------|------|
-| `O` | 赛中过题 |
-| `Ø` | 赛后补过 |
-| `!` | 尝试过但未通过 |
-| `.` | 未提交 |
+{problem_status_table}
 
 ## 总结
 
@@ -117,4 +136,5 @@ class MdStore:
             solved=contest.solved,
             total=contest.total,
             tags=contest.tags,
+            problem_status_table=render_problem_status_table(contest),
         )
