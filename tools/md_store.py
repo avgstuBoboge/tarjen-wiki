@@ -29,6 +29,12 @@ def current_update_time() -> str:
     return datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %z")
 
 
+def render_solved_summary(contest: Contest) -> str:
+    total_solved = sum(1 for p in contest.problems if p in ("O", "Ø"))
+    in_contest = sum(1 for p in contest.problems if p == "O")
+    return f"{total_solved}/{in_contest}/{contest.total}"
+
+
 def render_problem_status_table(contest: Contest) -> str:
     letters = [chr(ord("A") + i) for i in range(contest.total)]
     total_solved = sum(1 for p in contest.problems if p in ("O", "Ø"))
@@ -63,7 +69,7 @@ CONTEST_TEMPLATE = """# {name}
 | 平台 |  |
 | 比赛链接 | {link} |
 | 参赛 |  |
-| 通过 | {solved} / {total} |
+| 通过 | {solved_summary} |
 | 排名 |  |
 | 标签 | {tags} |
 | 最后更新 | {last_updated} |
@@ -135,8 +141,7 @@ class MdStore:
             name=contest.name,
             date_iso=date_iso,
             link=contest.link or "",
-            solved=contest.solved,
-            total=contest.total,
+            solved_summary=render_solved_summary(contest),
             tags=contest.tags,
             last_updated=current_update_time(),
             problem_status_table=render_problem_status_table(contest),

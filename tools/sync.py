@@ -61,6 +61,12 @@ def current_update_time() -> str:
     return datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %z")
 
 
+def render_solved_summary(c: "Contest") -> str:
+    total_solved = sum(1 for p in c.problems if p in ("O", "Ø"))
+    in_contest = sum(1 for p in c.problems if p == "O")
+    return f"{total_solved}/{in_contest}/{c.total}"
+
+
 @dataclass
 class Contest:
     slug: str
@@ -292,7 +298,7 @@ CONTEST_TEMPLATE = """# {name}
 | 平台 |  |
 | 比赛链接 | {link} |
 | 参赛 |  |
-| 通过 | {solved} / {total} |
+| 通过 | {solved_summary} |
 | 排名 |  |
 | 标签 | {tags} |
 | 最后更新 | {last_updated} |
@@ -331,8 +337,7 @@ def create_placeholders(contests: list[Contest], *, dry_run: bool) -> list[str]:
             name=c.name,
             date_iso=f"{int(y):04d}-{int(m):02d}-{int(d):02d}",
             link=c.link or "",
-            solved=c.solved,
-            total=c.total,
+            solved_summary=render_solved_summary(c),
             tags=c.tags,
             last_updated=current_update_time(),
             problem_status_table=render_problem_status_table(c),
@@ -354,17 +359,23 @@ def update_problem_status_sections(contests: list[Contest], *, dry_run: bool) ->
         if not target.exists():
             continue
         original_text = target.read_text(encoding="utf-8")
-        text_with_update = re.sub(
-            r"\| 最后更新 \| .*? \|",
-            f"| 最后更新 | {last_updated} |",
+        text_with_solved = re.sub(
+            r"\| 通过 \| .*? \|",
+            f"| 通过 | {render_solved_summary(c)} |",
             original_text,
             count=1,
         )
-        if text_with_update == original_text:
+        text_with_update = re.sub(
+            r"\| 最后更新 \| .*? \|",
+            f"| 最后更新 | {last_updated} |",
+            text_with_solved,
+            count=1,
+        )
+        if text_with_update == text_with_solved:
             text_with_update = re.sub(
                 r"(\| 标签 \| .*? \|)",
                 rf"\1\n| 最后更新 | {last_updated} |",
-                original_text,
+                text_with_solved,
                 1,
             )
         text = text_with_update
