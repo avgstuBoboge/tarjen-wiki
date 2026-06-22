@@ -18,6 +18,7 @@ tools/md_store.py — docs/contests/<slug>.md 详情页读写
 from __future__ import annotations
 
 import sys
+from datetime import datetime
 from pathlib import Path
 
 # Contest dataclass from csv_store
@@ -30,6 +31,10 @@ STATUS_LABELS = {
     "!": "! 尝试未过",
     ".": ". 未提交",
 }
+
+
+def current_update_time() -> str:
+    return datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %z")
 
 
 def render_problem_status_table(contest: Contest) -> str:
@@ -65,6 +70,7 @@ CONTEST_TEMPLATE = """# {name}
 | 通过 | {solved} / {total} |
 | 排名 |  |
 | 标签 | {tags} |
+| 最后更新 | {last_updated} |
 
 ## 做题情况
 
@@ -136,5 +142,6 @@ class MdStore:
             solved=contest.solved,
             total=contest.total,
             tags=contest.tags,
+            last_updated=current_update_time(),
             problem_status_table=render_problem_status_table(contest),
         )

@@ -40,6 +40,7 @@ import json
 import re
 import sys
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -62,6 +63,10 @@ STATUS_LABELS = {
     "!": "! 尝试未过",
     ".": ". 未提交",
 }
+
+
+def current_update_time() -> str:
+    return datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %z")
 
 
 @dataclass
@@ -294,6 +299,7 @@ CONTEST_TEMPLATE = """# {name}
 | 通过 | {solved} / {total} |
 | 排名 |  |
 | 标签 | {tags} |
+| 最后更新 | {last_updated} |
 
 ## 做题情况
 
@@ -332,6 +338,7 @@ def create_placeholders(contests: list[Contest], *, dry_run: bool) -> list[str]:
             solved=c.solved,
             total=c.total,
             tags=c.tags,
+            last_updated=current_update_time(),
             problem_status_table=render_problem_status_table(c),
         )
         if dry_run:
@@ -344,12 +351,27 @@ def create_placeholders(contests: list[Contest], *, dry_run: bool) -> list[str]:
 
 
 def update_problem_status_sections(contests: list[Contest], *, dry_run: bool) -> None:
+    last_updated = current_update_time()
     changed = 0
     for c in contests:
         target = CONTESTS_DIR / f"{c.slug}.md"
         if not target.exists():
             continue
-        text = target.read_text(encoding="utf-8")
+        original_text = target.read_text(encoding="utf-8")
+        text_with_update = re.sub(
+            r"\| 最后更新 \| .*? \|",
+            f"| 最后更新 | {last_updated} |",
+            original_text,
+            count=1,
+        )
+        if text_with_update == original_text:
+            text_with_update = re.sub(
+                r"(\| 标签 \| .*? \|)",
+                rf"\1\n| 最后更新 | {last_updated} |",
+                original_text,
+                1,
+            )
+        text = text_with_update
         section = f"## 做题情况\n\n{render_problem_status_table(c)}\n\n"
         if "<!-- SYNC:PROBLEM-STATUS-START -->" in text:
             new_text = re.sub(
@@ -370,7 +392,7 @@ def update_problem_status_sections(contests: list[Contest], *, dry_run: bool) ->
         else:
             new_text = text.replace("## 总结\n", section + "## 总结\n", 1)
 
-        if new_text == text:
+        if new_text == original_text:
             continue
         changed += 1
         if dry_run:
