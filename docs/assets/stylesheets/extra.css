@@ -90,3 +90,34 @@
   padding-bottom: 1em;
   border-bottom: 1px solid var(--md-default-fg-color--lightest);
 }
+
+.problem-status-wrap {
+  margin: 0.75em 0 1.2em;
+  overflow-x: auto;
+}
+
+.md-typeset table.problem-status-table {
+  width: auto;
+  table-layout: fixed;
+  font-size: 0.86em;
+  line-height: 1.35;
+  border-collapse: collapse;
+}
+
+.md-typeset table.problem-status-table th,
+.md-typeset table.problem-status-table td {
+  width: 2.4em;
+  min-width: 2.4em;
+  max-width: 2.4em;
+  padding: 0.35em 0.3em;
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.md-typeset table.problem-status-table th:first-child,
+.md-typeset table.problem-status-table td:first-child {
+  width: 3.6em;
+  min-width: 3.6em;
+  max-width: 3.6em;
+}

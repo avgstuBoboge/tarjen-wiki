@@ -16,16 +16,19 @@
 | 通过 | 6 / 12 |
 | 排名 |  |
 | 标签 |  |
-| 最后更新 | 2026-06-22 20:42:30 +0200 |
+| 最后更新 | 2026-06-22 21:09:25 +0200 |
 
 ## 做题情况
 
 <!-- SYNC:PROBLEM-STATUS-START -->
 题数：**6/5/12**（总通过 / 赛中过 / 总题数）
 
-| 题目 | A | B | C | D | E | F | G | H | I | J | K | L |
-|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 状态 | O | . | O | O | . | O | . | O | Ø | . | . | . |
+<div class="problem-status-wrap">
+<table class="problem-status-table">
+<tr><th>题目</th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th>G</th><th>H</th><th>I</th><th>J</th><th>K</th><th>L</th></tr>
+<tr><th>状态</th><td>O</td><td>.</td><td>O</td><td>O</td><td>.</td><td>O</td><td>.</td><td>O</td><td>Ø</td><td>.</td><td>.</td><td>.</td></tr>
+</table>
+</div>
 <!-- SYNC:PROBLEM-STATUS-END -->
 
 ## 总结

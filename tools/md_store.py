@@ -33,13 +33,18 @@ def render_problem_status_table(contest: Contest) -> str:
     letters = [chr(ord("A") + i) for i in range(contest.total)]
     total_solved = sum(1 for p in contest.problems if p in ("O", "Ø"))
     in_contest = sum(1 for p in contest.problems if p == "O")
+    header_cells = "".join(f"<th>{letter}</th>" for letter in letters)
+    status_cells = "".join(f"<td>{status}</td>" for status in contest.problems)
     return "\n".join([
         "<!-- SYNC:PROBLEM-STATUS-START -->",
         f"题数：**{total_solved}/{in_contest}/{contest.total}**（总通过 / 赛中过 / 总题数）",
         "",
-        "| 题目 | " + " | ".join(letters) + " |",
-        "|:---:|" + "|".join([":---:"] * len(letters)) + "|",
-        "| 状态 | " + " | ".join(contest.problems) + " |",
+        '<div class="problem-status-wrap">',
+        '<table class="problem-status-table">',
+        f"<tr><th>题目</th>{header_cells}</tr>",
+        f"<tr><th>状态</th>{status_cells}</tr>",
+        "</table>",
+        "</div>",
         "<!-- SYNC:PROBLEM-STATUS-END -->",
     ])
 
