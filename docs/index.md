@@ -14,14 +14,14 @@
 <!-- SYNC:CONTESTS-START -->
 | 比赛 | 日期 | 题数 |  | A | B | C | D | E | F | G | H | I | J | K | L | M |
 |:-----|:----:|:----:|:---:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| [The 2019 Polish Collegiate Programming Contest (AMPPZ 2019)](contests/2026-the-2019-polish-collegiate-programming-contest-amppz-2019.md) | 2026.06.15 | 5/5/12 | [✎](editor/?slug=2026-the-2019-polish-collegiate-programming-contest-amppz-2019&_t=4679a9) | O | . | O | O | . | O | . | O | . | . | . | . |  |
+| [The 2019 Polish Collegiate Programming Contest (AMPPZ 2019)](contests/2026-the-2019-polish-collegiate-programming-contest-amppz-2019.md) | 2026.06.15 | 6/5/12 | [✎](editor/?slug=2026-the-2019-polish-collegiate-programming-contest-amppz-2019&_t=4679a9) | O | . | O | O | . | O | . | O | Ø | . | . | . |  |
 | [2026 年山东省大学生程序设计竞赛](contests/2026-shandong-provincial-collegiate-programming-contest.md) | 2026.05.25 | 10/7/13 | [✎](editor/?slug=2026-shandong-provincial-collegiate-programming-contest&_t=4679a9) | O | . | O | Ø | O | . | O | Ø | O | Ø | O | O | . |
 <!-- SYNC:CONTESTS-END -->
 
 ## 统计
 
 - 累计场次：<!-- SYNC:COUNT -->2<!-- /SYNC:COUNT -->
-- 累计通过：约 <!-- SYNC:SOLVED -->15<!-- /SYNC:SOLVED --> 题
+- 累计通过：约 <!-- SYNC:SOLVED -->16<!-- /SYNC:SOLVED --> 题
 
 ## 维护说明
 

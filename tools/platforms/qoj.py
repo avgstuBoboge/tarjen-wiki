@@ -126,6 +126,10 @@ RE_SUB_VERDICT = re.compile(
     r'class="uoj-score"[^>]*>\s*([A-Za-z]+)\b'
     r'|<td[^>]*>\s*(AC|WA|TL|RE|ML|CE|SE)\s*</td>'
 )
+RE_SUB_SCORE = re.compile(
+    r'class="uoj-score"[^>]*data-score="([0-9.]+)"[^>]*>\s*([^<]*)</a>',
+    re.DOTALL,
+)
 # User: 优先 uoj-username span, fallback profile 链接
 RE_SUB_USER = re.compile(
     r'class="uoj-username"[^>]*>([^<]+)</span>'
@@ -704,10 +708,19 @@ class QojClient(PlatformClient):
             letter_m = RE_SUB_PROBLEM_LETTER.search(row)
             if not letter_m:
                 continue
-            verdict_m = RE_SUB_VERDICT.search(row)
-            if not verdict_m:
-                continue
-            verdict = (verdict_m.group(1) or verdict_m.group(2) or "").strip()
+            score_m = RE_SUB_SCORE.search(row)
+            verdict = ""
+            if score_m:
+                try:
+                    if float(score_m.group(1)) >= 100:
+                        verdict = "AC"
+                except ValueError:
+                    verdict = ""
+            if not verdict:
+                verdict_m = RE_SUB_VERDICT.search(row)
+                if not verdict_m:
+                    continue
+                verdict = (verdict_m.group(1) or verdict_m.group(2) or "").strip()
             time_m = RE_SUB_TIME_FIELD.search(row)
             time_text = time_m.group(1) if time_m else ""
             user_m = RE_SUB_USER.search(row)
