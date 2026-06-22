@@ -11,6 +11,16 @@
   ],
   "rows": [
     {
+      "slug": "2026",
+      "name": "2026 年山东省大学生程序设计竞赛",
+      "date": "2026.06.22",
+      "solved": 0,
+      "total": 13,
+      "problems": ".;.;.;.;.;.;.;.;.;.;.;.;.",
+      "link": "https://qoj.ac/contest/3767",
+      "tags": ""
+    },
+    {
       "slug": "2026-the-2019-polish-collegiate-programming-contest-amppz-2019",
       "name": "The 2019 Polish Collegiate Programming Contest (AMPPZ 2019)",
       "date": "2026.06.19",
