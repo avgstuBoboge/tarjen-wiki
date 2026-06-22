@@ -57,14 +57,6 @@ DATE_RE = re.compile(r"^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})$")
 ALLOWED_PROBLEM_CHARS = set("OØ.!")
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9\-_.]*$")
 
-STATUS_LABELS = {
-    "O": "O 赛中过题",
-    "Ø": "Ø 赛后补过",
-    "!": "! 尝试未过",
-    ".": ". 未提交",
-}
-
-
 def current_update_time() -> str:
     return datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %z")
 
@@ -269,7 +261,6 @@ def update_index_md(contests: list[Contest], *, dry_run: bool) -> None:
 
 def render_problem_status_table(c: Contest) -> str:
     letters = [chr(ord("A") + i) for i in range(c.total)]
-    statuses = [STATUS_LABELS.get(p, p) for p in c.problems]
     total_solved = sum(1 for p in c.problems if p in ("O", "Ø"))
     in_contest = sum(1 for p in c.problems if p == "O")
     return "\n".join([
@@ -278,7 +269,7 @@ def render_problem_status_table(c: Contest) -> str:
         "",
         "| 题目 | " + " | ".join(letters) + " |",
         "|:---:|" + "|".join([":---:"] * len(letters)) + "|",
-        "| 状态 | " + " | ".join(statuses) + " |",
+        "| 状态 | " + " | ".join(c.problems) + " |",
         "<!-- SYNC:PROBLEM-STATUS-END -->",
     ])
 

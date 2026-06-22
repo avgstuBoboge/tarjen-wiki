@@ -25,21 +25,12 @@ from pathlib import Path
 from csv_store import Contest  # noqa: E402
 
 
-STATUS_LABELS = {
-    "O": "O 赛中过题",
-    "Ø": "Ø 赛后补过",
-    "!": "! 尝试未过",
-    ".": ". 未提交",
-}
-
-
 def current_update_time() -> str:
     return datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %z")
 
 
 def render_problem_status_table(contest: Contest) -> str:
     letters = [chr(ord("A") + i) for i in range(contest.total)]
-    statuses = [STATUS_LABELS.get(p, p) for p in contest.problems]
     total_solved = sum(1 for p in contest.problems if p in ("O", "Ø"))
     in_contest = sum(1 for p in contest.problems if p == "O")
     return "\n".join([
@@ -48,7 +39,7 @@ def render_problem_status_table(contest: Contest) -> str:
         "",
         "| 题目 | " + " | ".join(letters) + " |",
         "|:---:|" + "|".join([":---:"] * len(letters)) + "|",
-        "| 状态 | " + " | ".join(statuses) + " |",
+        "| 状态 | " + " | ".join(contest.problems) + " |",
         "<!-- SYNC:PROBLEM-STATUS-END -->",
     ])
 
