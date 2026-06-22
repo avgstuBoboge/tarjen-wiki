@@ -642,15 +642,17 @@ def update(cid, platform, user, yes, dry_run, slug):
 @click.option("--yes", "-y", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 @click.option("--since", default=None)
-def upsolve(cid_or_slug, platform, user, yes, dry_run, since):
+@click.option("--slug", "slug_override", default=None,
+              help="contest id 导入时使用的自定义 slug（标题无法自动生成 slug 时使用）")
+def upsolve(cid_or_slug, platform, user, yes, dry_run, since, slug_override):
     """检测赛后补题, 更新 contests.csv."""
     user = get_user(user, platform)
     click.echo(f"用户: {user} (platform: {platform})")
 
     if cid_or_slug.isdigit():
-        contest_id, slug = cid_or_slug, None
+        contest_id, slug = cid_or_slug, slug_override
     else:
-        contest_id, slug = None, cid_or_slug
+        contest_id, slug = None, slug_override or cid_or_slug
 
     try:
         preview = build_upsolve_preview(

@@ -36,7 +36,7 @@ wiki edit <slug>                       # 打开 $EDITOR
 wiki update <cid> [--user NAME] [--slug X] [--date YYYY.M.D] [--dry-run] [-y]
 
 # 几天后: 从 submissions 检测补题 (mark ./! → Ø)
-wiki upsolve <cid> [--user NAME] [--since ISO] [--dry-run] [-y]
+wiki upsolve <cid|slug> [--user NAME] [--slug SLUG] [--since ISO] [--dry-run] [-y]
 ```
 
 ### 代码抓取
