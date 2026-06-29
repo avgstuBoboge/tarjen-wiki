@@ -46,6 +46,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CSV_PATH = REPO_ROOT / "contests.csv"
 INDEX_MD = REPO_ROOT / "docs" / "index.md"
+MKDOCS_YML = REPO_ROOT / "mkdocs.yml"
 CONTESTS_DIR = REPO_ROOT / "docs" / "contests"
 DATA_DIR = REPO_ROOT / "docs" / "data"
 DATA_JSON = DATA_DIR / "contests.json"
@@ -65,6 +66,40 @@ def render_solved_summary(c: "Contest") -> str:
     total_solved = sum(1 for p in c.problems if p in ("O", "Ø"))
     in_contest = sum(1 for p in c.problems if p == "O")
     return f"{total_solved}/{in_contest}/{c.total}"
+
+
+def render_contest_nav(contests: list["Contest"]) -> str:
+    return "\n".join(
+        f"      - {json.dumps(c.name, ensure_ascii=False)}: contests/{c.slug}.md"
+        for c in contests
+    )
+
+
+def update_mkdocs_nav(contests: list["Contest"], *, dry_run: bool) -> None:
+    text = MKDOCS_YML.read_text(encoding="utf-8")
+    nav = render_contest_nav(contests)
+    replacement = (
+        "# SYNC:CONTEST-NAV-START\n"
+        f"{nav}\n"
+        "      # SYNC:CONTEST-NAV-END"
+    )
+    new_text, count = re.subn(
+        r"# SYNC:CONTEST-NAV-START.*?# SYNC:CONTEST-NAV-END",
+        replacement,
+        text,
+        count=1,
+        flags=re.DOTALL,
+    )
+    if count != 1:
+        sys.exit("mkdocs.yml 缺少比赛导航同步标记")
+    if new_text == text:
+        print("[mkdocs.yml] 导航无变化")
+        return
+    if dry_run:
+        print("[mkdocs.yml] (dry-run) 更新比赛导航")
+        return
+    MKDOCS_YML.write_text(new_text, encoding="utf-8")
+    print("[mkdocs.yml] 已按比赛日期更新导航")
 
 
 @dataclass
@@ -469,6 +504,7 @@ def main() -> None:
         return
 
     update_index_md(contests, dry_run=args.dry_run)
+    update_mkdocs_nav(contests, dry_run=args.dry_run)
     created = create_placeholders(contests, dry_run=args.dry_run)
     update_problem_status_sections(contests, dry_run=args.dry_run)
     write_data_json(contests, dry_run=args.dry_run)

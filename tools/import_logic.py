@@ -466,7 +466,7 @@ def apply_update(
     paths = ["contests.csv"]
     if body_written:
         paths.append(body_written)
-    paths += ["docs/index.md", "docs/data/contests.json"]
+    paths += ["docs/index.md", "docs/data/contests.json", "mkdocs.yml"]
     sha, pushed = git_ops.commit_and_push(msg, paths)
 
     return ApplyResult(
@@ -678,7 +678,7 @@ def apply_upsolve(
     _run_sync(git_ops.repo_path)
 
     msg = commit_message or f"upsolve({preview.slug}): via qoj"
-    paths = ["contests.csv", "docs/index.md", "docs/data/contests.json"]
+    paths = ["contests.csv", "docs/index.md", "docs/data/contests.json", "mkdocs.yml"]
     sha, pushed = git_ops.commit_and_push(msg, paths)
 
     return ApplyResult(

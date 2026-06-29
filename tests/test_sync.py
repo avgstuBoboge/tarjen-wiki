@@ -205,6 +205,15 @@ class TestRenderTable(unittest.TestCase):
     def test_zero_contests(self):
         self.assertIn("| 比赛 | 日期 | 题数 |  |  |", sync.render_table([]))
 
+    def test_contest_nav_preserves_date_sorted_order(self):
+        contests = [
+            sync.Contest("new", "New Contest", "2026.6.2", 0, 1, ["."], "", ""),
+            sync.Contest("old", "Old Contest", "2026.5.1", 0, 1, ["."], "", ""),
+        ]
+        nav = sync.render_contest_nav(contests)
+        self.assertLess(nav.find("New Contest"), nav.find("Old Contest"))
+        self.assertIn("contests/new.md", nav)
+
 
 # ---------- 端到端：写一个临时项目跑 main() ----------
 

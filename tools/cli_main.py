@@ -427,7 +427,14 @@ def add(slug, name, date, total, problems, tags, link, body, yes):
 
     try:
         sha, pushed = app.git.commit_and_push(
-            f"add({slug}): via cli", ["contests.csv", f"docs/contests/{slug}.md"]
+            f"add({slug}): via cli",
+            [
+                "contests.csv",
+                f"docs/contests/{slug}.md",
+                "docs/index.md",
+                "docs/data/contests.json",
+                "mkdocs.yml",
+            ],
         )
     except GitPushError as e:
         click.echo(f"⚠ commit 成功但 push 失败: {e}", err=True)
@@ -499,7 +506,8 @@ def set_cmd(slug, name, date, total, problems, tags, link, status, yes):
         pass
     try:
         sha, pushed = app.git.commit_and_push(
-            f"update({slug}): via cli", ["contests.csv"]
+            f"update({slug}): via cli",
+            ["contests.csv", "docs/index.md", "docs/data/contests.json", "mkdocs.yml"],
         )
     except GitPushError as e:
         click.echo(f"⚠ push 失败但 commit 成功: {e}", err=True)
@@ -531,7 +539,7 @@ def rm(slug, keep_body, yes):
         _run_sync()
     except Exception:
         pass
-    paths = ["contests.csv"]
+    paths = ["contests.csv", "docs/index.md", "docs/data/contests.json", "mkdocs.yml"]
     if body_removed:
         paths.append(f"docs/contests/{slug}.md")
     try:
