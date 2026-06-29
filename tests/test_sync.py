@@ -298,6 +298,18 @@ class TestEndToEnd(unittest.TestCase):
         sync.create_placeholders(contests, dry_run=False)
         self.assertEqual(target.read_text(encoding="utf-8"), "# 用户手写的笔记，不要覆盖\n")
 
+    def test_unchanged_detail_keeps_last_updated(self):
+        contests = sync.read_csv(sync.CSV_PATH)
+        sync.create_placeholders(contests, dry_run=False)
+        target = sync.CONTESTS_DIR / "2024-t.md"
+        original = target.read_text(encoding="utf-8")
+
+        from unittest.mock import patch
+        with patch.object(sync, "current_update_time", return_value="2099-01-01 00:00:00 +0000"):
+            sync.update_problem_status_sections(contests, dry_run=False)
+
+        self.assertEqual(target.read_text(encoding="utf-8"), original)
+
     def test_check_flag_does_not_write(self):
         # 直接跑 CLI 一次确认 --check 模式
         result = subprocess.run(

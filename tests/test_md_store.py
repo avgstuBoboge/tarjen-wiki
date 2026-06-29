@@ -117,9 +117,10 @@ class TestPlaceholder(unittest.TestCase):
         body = self.store.placeholder(c)
         self.assertIn("# 2025 ICPC XXX", body)
         self.assertIn("比赛日期 | 2025-06-12", body)  # iso format
-        self.assertIn("通过 | 7 / 13", body)
+        self.assertIn("通过 | 7/7/13", body)
         self.assertIn("https://x", body)
         self.assertIn("#icpc #regional", body)
+        self.assertEqual(body.count("| 最后更新 |"), 1)
 
     def test_placeholder_includes_slug(self):
         c = make_contest(slug="2025-icpc-xxx-regional")
@@ -147,11 +148,12 @@ class TestIntegrationWithRealDir(unittest.TestCase):
         if not cls.real_dir.exists():
             cls.skipTest("no docs/contests/")
 
-    def test_taichung_exists(self):
+    def test_polish_contest_exists(self):
         store = MdStore(self.real_dir)
-        self.assertTrue(store.exists("2024-icpc-asia-taichung"))
-        content = store.read("2024-icpc-asia-taichung")
-        self.assertIn("2024 ICPC Asia Taichung", content)
+        slug = "2026-the-2019-polish-collegiate-programming-contest-amppz-2019"
+        self.assertTrue(store.exists(slug))
+        content = store.read(slug)
+        self.assertIn("The 2019 Polish Collegiate Programming Contest", content)
 
 
 if __name__ == "__main__":

@@ -365,42 +365,46 @@ def update_problem_status_sections(contests: list[Contest], *, dry_run: bool) ->
             original_text,
             count=1,
         )
-        text_with_update = re.sub(
-            r"\| 最后更新 \| .*? \|",
-            f"| 最后更新 | {last_updated} |",
-            text_with_solved,
-            count=1,
-        )
-        if text_with_update == text_with_solved:
-            text_with_update = re.sub(
-                r"(\| 标签 \| .*? \|)",
-                rf"\1\n| 最后更新 | {last_updated} |",
-                text_with_solved,
-                1,
-            )
-        text = text_with_update
         section = f"## 做题情况\n\n{render_problem_status_table(c)}\n\n"
-        if "<!-- SYNC:PROBLEM-STATUS-START -->" in text:
-            new_text = re.sub(
+        if "<!-- SYNC:PROBLEM-STATUS-START -->" in text_with_solved:
+            content_text = re.sub(
                 r"## 做题情况\n\n<!-- SYNC:PROBLEM-STATUS-START -->.*?<!-- SYNC:PROBLEM-STATUS-END -->\n*",
                 section,
-                text,
+                text_with_solved,
                 count=1,
                 flags=re.DOTALL,
             )
-        elif "## 题目状态图例" in text:
-            new_text = re.sub(
+        elif "## 题目状态图例" in text_with_solved:
+            content_text = re.sub(
                 r"## 题目状态图例\n\n.*?(?=\n## 总结)",
                 section.rstrip(),
-                text,
+                text_with_solved,
                 count=1,
                 flags=re.DOTALL,
             )
         else:
-            new_text = text.replace("## 总结\n", section + "## 总结\n", 1)
+            content_text = text_with_solved.replace(
+                "## 总结\n", section + "## 总结\n", 1
+            )
 
-        if new_text == original_text:
+        has_last_updated = re.search(r"\| 最后更新 \| .*? \|", original_text)
+        if content_text == original_text and has_last_updated:
             continue
+
+        new_text = re.sub(
+            r"\| 最后更新 \| .*? \|",
+            f"| 最后更新 | {last_updated} |",
+            content_text,
+            count=1,
+        )
+        if new_text == content_text and not has_last_updated:
+            new_text = re.sub(
+                r"(\| 标签 \| .*? \|)",
+                rf"\1\n| 最后更新 | {last_updated} |",
+                content_text,
+                1,
+            )
+
         changed += 1
         if dry_run:
             print(f"[detail] (dry-run) 更新做题情况 {target.relative_to(REPO_ROOT)}")
