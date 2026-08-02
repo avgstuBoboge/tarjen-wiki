@@ -14,6 +14,7 @@
 <!-- SYNC:CONTESTS-START -->
 | 比赛 | 日期 | 题数 |  | A | B | C | D | E | F | G | H | I | J | K | L | M |
 |:-----|:----:|:----:|:---:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| [The 4th Universal Cup. Extra Stage 1: Xi'an (Unrated)](contests/2026-the-4th-universal-cup-extra-stage-1-xian-unrated.md) | 2026.08.02 | 7/7/13 | [✎](editor/?slug=2026-the-4th-universal-cup-extra-stage-1-xian-unrated&_t=752469) | . | O | . | . | . | O | O | . | O | O | . | O | O |
 | [第八届中国大学生程序设计竞赛 绵阳站（CCPC 2022 Mianyang Site）](contests/2026-ccpc-2022-mianyang-site.md) | 2026.06.29 | 8/8/13 | [✎](editor/?slug=2026-ccpc-2022-mianyang-site&_t=752469) | O | . | O | O | O | . | O | O | . | O | . | . | O |
 | [The 2019 Polish Collegiate Programming Contest (AMPPZ 2019)](contests/2026-the-2019-polish-collegiate-programming-contest-amppz-2019.md) | 2026.06.15 | 6/5/12 | [✎](editor/?slug=2026-the-2019-polish-collegiate-programming-contest-amppz-2019&_t=752469) | O | . | O | O | . | O | . | O | Ø | . | . | . |  |
 | [2026 年山东省大学生程序设计竞赛](contests/2026-shandong-provincial-collegiate-programming-contest.md) | 2026.05.25 | 11/7/13 | [✎](editor/?slug=2026-shandong-provincial-collegiate-programming-contest&_t=752469) | O | . | O | Ø | O | . | O | Ø | O | Ø | O | O | Ø |
@@ -21,8 +22,8 @@
 
 ## 统计
 
-- 累计场次：<!-- SYNC:COUNT -->3<!-- /SYNC:COUNT -->
-- 累计通过：约 <!-- SYNC:SOLVED -->25<!-- /SYNC:SOLVED --> 题
+- 累计场次：<!-- SYNC:COUNT -->4<!-- /SYNC:COUNT -->
+- 累计通过：约 <!-- SYNC:SOLVED -->32<!-- /SYNC:SOLVED --> 题
 
 ## 维护说明
 
