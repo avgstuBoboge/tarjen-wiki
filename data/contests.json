@@ -14,9 +14,9 @@
       "slug": "2026-the-4th-universal-cup-extra-stage-1-xian-unrated",
       "name": "The 4th Universal Cup. Extra Stage 1: Xi'an (Unrated)",
       "date": "2026.08.02",
-      "solved": 7,
+      "solved": 9,
       "total": 13,
-      "problems": ".;O;.;.;.;O;O;.;O;O;.;O;O",
+      "problems": ".;O;Ø;.;.;O;O;.;O;O;Ø;O;O",
       "link": "https://qoj.ac/contest/2562",
       "tags": ""
     },
