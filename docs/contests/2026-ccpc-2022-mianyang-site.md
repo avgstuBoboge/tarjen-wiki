@@ -12,20 +12,20 @@
 | 平台 | QOJ |
 | 比赛链接 | https://qoj.ac/contest/1480 |
 | 参赛 |  |
-| 通过 | 8/8/13 |
+| 通过 | 9/8/13 |
 | 排名 |  |
 | 标签 |  |
-| 最后更新 | 2026-06-29 15:09:08 +0200 |
+| 最后更新 | 2026-08-22 19:35:20 +0200 |
 
 ## 做题情况
 
 <!-- SYNC:PROBLEM-STATUS-START -->
-题数：**8/8/13**（总通过 / 赛中过 / 总题数）
+题数：**9/8/13**（总通过 / 赛中过 / 总题数）
 
 <div class="problem-status-wrap">
 <table class="problem-status-table">
 <tr><th>题目</th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th>G</th><th>H</th><th>I</th><th>J</th><th>K</th><th>L</th><th>M</th></tr>
-<tr><th>状态</th><td>O</td><td>.</td><td>O</td><td>O</td><td>O</td><td>.</td><td>O</td><td>O</td><td>.</td><td>O</td><td>.</td><td>.</td><td>O</td></tr>
+<tr><th>状态</th><td>O</td><td>.</td><td>O</td><td>O</td><td>O</td><td>.</td><td>O</td><td>O</td><td>.</td><td>O</td><td>.</td><td>Ø</td><td>O</td></tr>
 </table>
 </div>
 <!-- SYNC:PROBLEM-STATUS-END -->

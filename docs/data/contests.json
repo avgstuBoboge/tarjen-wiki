@@ -11,12 +11,22 @@
   ],
   "rows": [
     {
+      "slug": "2026-the-4th-universal-cup-stage-6-grand-prix-of-shenyang",
+      "name": "The 4th Universal Cup. Stage 6: Grand Prix of Shenyang",
+      "date": "2026.08.22",
+      "solved": 7,
+      "total": 13,
+      "problems": "O;O;.;.;.;O;O;.;O;.;O;.;O",
+      "link": "https://qoj.ac/contest/2641",
+      "tags": ""
+    },
+    {
       "slug": "2026-the-4th-universal-cup-extra-stage-1-xian-unrated",
       "name": "The 4th Universal Cup. Extra Stage 1: Xi'an (Unrated)",
       "date": "2026.08.02",
-      "solved": 7,
+      "solved": 9,
       "total": 13,
-      "problems": ".;O;.;.;.;O;O;.;O;O;.;O;O",
+      "problems": ".;O;Ø;.;.;O;O;.;O;O;Ø;O;O",
       "link": "https://qoj.ac/contest/2562",
       "tags": ""
     },
@@ -24,9 +34,9 @@
       "slug": "2026-ccpc-2022-mianyang-site",
       "name": "第八届中国大学生程序设计竞赛 绵阳站（CCPC 2022 Mianyang Site）",
       "date": "2026.06.29",
-      "solved": 8,
+      "solved": 9,
       "total": 13,
-      "problems": "O;.;O;O;O;.;O;O;.;O;.;.;O",
+      "problems": "O;.;O;O;O;.;O;O;.;O;.;Ø;O",
       "link": "https://qoj.ac/contest/1480",
       "tags": ""
     },
@@ -34,9 +44,9 @@
       "slug": "2026-the-2019-polish-collegiate-programming-contest-amppz-2019",
       "name": "The 2019 Polish Collegiate Programming Contest (AMPPZ 2019)",
       "date": "2026.06.15",
-      "solved": 6,
+      "solved": 9,
       "total": 12,
-      "problems": "O;.;O;O;.;O;.;O;Ø;.;.;.",
+      "problems": "O;Ø;O;O;.;O;Ø;O;Ø;.;.;Ø",
       "link": "https://qoj.ac/contest/559",
       "tags": ""
     },
