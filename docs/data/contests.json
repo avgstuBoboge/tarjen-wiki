@@ -11,6 +11,16 @@
   ],
   "rows": [
     {
+      "slug": "2026-the-4th-universal-cup-stage-11-grand-prix-of-southeastern-eu",
+      "name": "The 4th Universal Cup. Stage 11: Grand Prix of Southeastern Europe",
+      "date": "2026.08.26",
+      "solved": 0,
+      "total": 12,
+      "problems": ".;.;.;.;.;.;.;.;.;.;.;.",
+      "link": "https://qoj.ac/contest/2828",
+      "tags": ""
+    },
+    {
       "slug": "2026-the-4th-universal-cup-stage-6-grand-prix-of-shenyang",
       "name": "The 4th Universal Cup. Stage 6: Grand Prix of Shenyang",
       "date": "2026.08.22",

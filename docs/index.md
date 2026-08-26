@@ -14,6 +14,7 @@
 <!-- SYNC:CONTESTS-START -->
 | 比赛 | 日期 | 题数 |  | A | B | C | D | E | F | G | H | I | J | K | L | M |
 |:-----|:----:|:----:|:---:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| [The 4th Universal Cup. Stage 11: Grand Prix of Southeastern Europe](contests/2026-the-4th-universal-cup-stage-11-grand-prix-of-southeastern-eu.md) | 2026.08.26 | 0/0/12 | [✎](editor/?slug=2026-the-4th-universal-cup-stage-11-grand-prix-of-southeastern-eu&_t=752469) | . | . | . | . | . | . | . | . | . | . | . | . |  |
 | [The 4th Universal Cup. Stage 6: Grand Prix of Shenyang](contests/2026-the-4th-universal-cup-stage-6-grand-prix-of-shenyang.md) | 2026.08.22 | 7/7/13 | [✎](editor/?slug=2026-the-4th-universal-cup-stage-6-grand-prix-of-shenyang&_t=752469) | O | O | . | . | . | O | O | . | O | . | O | . | O |
 | [The 4th Universal Cup. Extra Stage 1: Xi'an (Unrated)](contests/2026-the-4th-universal-cup-extra-stage-1-xian-unrated.md) | 2026.08.02 | 9/7/13 | [✎](editor/?slug=2026-the-4th-universal-cup-extra-stage-1-xian-unrated&_t=752469) | . | O | Ø | . | . | O | O | . | O | O | Ø | O | O |
 | [第八届中国大学生程序设计竞赛 绵阳站（CCPC 2022 Mianyang Site）](contests/2026-ccpc-2022-mianyang-site.md) | 2026.06.29 | 9/8/13 | [✎](editor/?slug=2026-ccpc-2022-mianyang-site&_t=752469) | O | . | O | O | O | . | O | O | . | O | . | Ø | O |
@@ -23,7 +24,7 @@
 
 ## 统计
 
-- 累计场次：<!-- SYNC:COUNT -->5<!-- /SYNC:COUNT -->
+- 累计场次：<!-- SYNC:COUNT -->6<!-- /SYNC:COUNT -->
 - 累计通过：约 <!-- SYNC:SOLVED -->45<!-- /SYNC:SOLVED --> 题
 
 ## 维护说明
