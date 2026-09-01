@@ -12,20 +12,20 @@
 | 平台 |  |
 | 比赛链接 | https://qoj.ac/contest/3762 |
 | 参赛 |  |
-| 通过 | 7/7/12 |
+| 通过 | 10/7/12 |
 | 排名 |  |
 | 标签 |  |
-| 最后更新 | 2026-08-28 03:51:28 +0200 |
+| 最后更新 | 2026-09-01 20:26:31 +0200 |
 
 ## 做题情况
 
 <!-- SYNC:PROBLEM-STATUS-START -->
-题数：**7/7/12**（总通过 / 赛中过 / 总题数）
+题数：**10/7/12**（总通过 / 赛中过 / 总题数）
 
 <div class="problem-status-wrap">
 <table class="problem-status-table">
 <tr><th>题目</th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th>G</th><th>H</th><th>I</th><th>J</th><th>K</th><th>L</th></tr>
-<tr><th>状态</th><td>O</td><td>O</td><td>.</td><td>O</td><td>O</td><td>O</td><td>O</td><td>.</td><td>.</td><td>O</td><td>.</td><td>.</td></tr>
+<tr><th>状态</th><td>O</td><td>O</td><td>.</td><td>O</td><td>O</td><td>O</td><td>O</td><td>Ø</td><td>Ø</td><td>O</td><td>Ø</td><td>.</td></tr>
 </table>
 </div>
 <!-- SYNC:PROBLEM-STATUS-END -->

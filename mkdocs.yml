@@ -12,6 +12,7 @@ nav:
   - 比赛记录: index.md
   - Contests:
       # SYNC:CONTEST-NAV-START
+      - "The 4th Universal Cup. Stage 22: Grand Prix of Kyoto": contests/2026-the-4th-universal-cup-stage-22-grand-prix-of-kyoto.md
       - "The 2026 ICPC Latin America Championship": contests/2026-the-2026-icpc-latin-america-championship.md
       - "The 4th Universal Cup. Stage 11: Grand Prix of Southeastern Europe": contests/2026-the-4th-universal-cup-stage-11-grand-prix-of-southeastern-eu.md
       - "The 4th Universal Cup. Stage 6: Grand Prix of Shenyang": contests/2026-the-4th-universal-cup-stage-6-grand-prix-of-shenyang.md
