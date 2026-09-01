@@ -11,6 +11,16 @@
   ],
   "rows": [
     {
+      "slug": "2026-the-4th-universal-cup-stage-22-grand-prix-of-kyoto",
+      "name": "The 4th Universal Cup. Stage 22: Grand Prix of Kyoto",
+      "date": "2026.09.01",
+      "solved": 8,
+      "total": 15,
+      "problems": "O;.;.;O;.;O;O;.;O;O;.;O;.;.;O",
+      "link": "https://qoj.ac/contest/3575",
+      "tags": ""
+    },
+    {
       "slug": "2026-the-2026-icpc-latin-america-championship",
       "name": "The 2026 ICPC Latin America Championship",
       "date": "2026.08.28",
