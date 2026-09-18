@@ -14,6 +14,7 @@
 <!-- SYNC:CONTESTS-START -->
 | 比赛 | 日期 | 题数 |  | A | B | C | D | E | F | G | H | I | J | K | L | M | N | O |
 |:-----|:----:|:----:|:---:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| [The 2026 ICPC Asia East Continent Online Contest (II)](contests/2026-the-2026-icpc-asia-east-continent-online-contest-ii.md) | 2026.09.19 | 7/6/12 | [✎](editor/?slug=2026-the-2026-icpc-asia-east-continent-online-contest-ii&_t=752469) | . | . | . | O | . | O | . | O | Ø | O | O | O |  |  |  |
 | [The 4th Universal Cup. Stage 22: Grand Prix of Kyoto](contests/2026-the-4th-universal-cup-stage-22-grand-prix-of-kyoto.md) | 2026.09.01 | 8/8/15 | [✎](editor/?slug=2026-the-4th-universal-cup-stage-22-grand-prix-of-kyoto&_t=752469) | O | . | . | O | . | O | O | . | O | O | . | O | . | . | O |
 | [The 2026 ICPC Latin America Championship](contests/2026-the-2026-icpc-latin-america-championship.md) | 2026.08.28 | 10/7/12 | [✎](editor/?slug=2026-the-2026-icpc-latin-america-championship&_t=752469) | O | O | . | O | O | O | O | Ø | Ø | O | Ø | . |  |  |  |
 | [The 4th Universal Cup. Stage 11: Grand Prix of Southeastern Europe](contests/2026-the-4th-universal-cup-stage-11-grand-prix-of-southeastern-eu.md) | 2026.08.26 | 8/7/12 | [✎](editor/?slug=2026-the-4th-universal-cup-stage-11-grand-prix-of-southeastern-eu&_t=752469) | O | O | O | O | O | Ø | O | . | . | . | O | . |  |  |  |
@@ -26,8 +27,8 @@
 
 ## 统计
 
-- 累计场次：<!-- SYNC:COUNT -->8<!-- /SYNC:COUNT -->
-- 累计通过：约 <!-- SYNC:SOLVED -->72<!-- /SYNC:SOLVED --> 题
+- 累计场次：<!-- SYNC:COUNT -->9<!-- /SYNC:COUNT -->
+- 累计通过：约 <!-- SYNC:SOLVED -->79<!-- /SYNC:SOLVED --> 题
 
 ## 维护说明
 
